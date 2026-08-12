@@ -15,12 +15,17 @@ warns = []
 
 
 def drawable_names():
-    """res/drawable があればそれを、無ければ tools/asset_list.txt を正とする。
-    納品ZIPは画像を含まないので、そのままでも検証が通るようにしている。"""
+    """res/drawable と tools/asset_list.txt の和集合。
+    納品ZIPは既存画像を含まない（新規追加ぶんだけ入る）ので、両方を見ないと
+    「リポジトリにはあるがZIPには無い画像」を欠落と誤判定してしまう。"""
+    listed = {os.path.splitext(l.strip())[0] for l in open(ASSET_LIST, encoding="utf-8") if l.strip()}
     if os.path.isdir(DRAWABLE):
-        return {os.path.splitext(f)[0] for f in os.listdir(DRAWABLE)}
-    warns.append("res/drawable が無いので tools/asset_list.txt で検証した")
-    return {os.path.splitext(l.strip())[0] for l in open(ASSET_LIST, encoding="utf-8") if l.strip()}
+        onDisk = {os.path.splitext(f)[0] for f in os.listdir(DRAWABLE)}
+        missing = sorted(n for n in onDisk if n not in listed)
+        if missing:
+            errors.append("tools/asset_list.txt に未登録の画像: " + ", ".join(missing))
+        return listed | onDisk
+    return listed
 
 # 1. JSON parse
 charas = json.load(open(os.path.join(ASSETS, "charas_human.json"), encoding="utf-8"))
@@ -109,7 +114,7 @@ if re.search(r"\becho\b", src):
     warns.append("echo found in source")
 
 # 6.5 盤面のかたち（195マス構成の規約）
-EXPECT = [("baby", 15), ("kinder", 20), ("elem", 40), ("jhs", 40), ("high", 40), ("univ", 40)]
+EXPECT = [("baby", 20), ("kinder", 25), ("elem", 40), ("jhs", 40), ("high", 40), ("univ", 40)]
 if len(stages) != len(EXPECT):
     errors.append("stage count must be %d" % len(EXPECT))
 else:
@@ -131,8 +136,8 @@ for c in empty:
         errors.append("通過マスに bg があるが表示されない at %d" % c["i"])
 
 bgcells = [c for c in cells if c.get("bg")]
-if len(bgcells) > 84:
-    warns.append("bg つきのマスが %d。ねらいは約80" % len(bgcells))
+if len(bgcells) > 94:
+    warns.append("bg つきのマスが %d。ねらいは約90" % len(bgcells))
 NODIALOG = ("CHOICE", "CRUSH", "START")
 for c in bgcells:
     if c["type"] in NODIALOG:

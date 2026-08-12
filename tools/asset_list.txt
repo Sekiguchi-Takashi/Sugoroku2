@@ -1,14 +1,22 @@
 bg_airport.jpg
 bg_amusement_park.jpg
+bg_amusement_wide.jpg
+bg_aquarium.jpg
 bg_art_room.jpg
+bg_baby_bath.jpg
+bg_baby_room.jpg
+bg_baby_shop.jpg
 bg_beach.jpg
 bg_bowling.jpg
 bg_bus.jpg
 bg_cabin_living.jpg
 bg_cabin_outside.jpg
 bg_cafe.jpg
+bg_campsite.jpg
+bg_carousel.jpg
 bg_ceremony_hall.jpg
 bg_cinema.jpg
+bg_circus.jpg
 bg_city_window.jpg
 bg_classroom_elem.jpg
 bg_classroom_high.jpg
@@ -23,6 +31,7 @@ bg_cruise_lobby.jpg
 bg_delivery_room.jpg
 bg_desk_work.jpg
 bg_family_restaurant.jpg
+bg_farm.jpg
 bg_ferris_cabin.jpg
 bg_ferry.jpg
 bg_field_sunset.jpg
@@ -41,6 +50,7 @@ bg_mall_bright.jpg
 bg_mountain_trail.jpg
 bg_music_room.jpg
 bg_nurse_room.jpg
+bg_nursery_room.jpg
 bg_old_town.jpg
 bg_paris.jpg
 bg_park_day.jpg
@@ -73,6 +83,7 @@ bg_town_crossing.jpg
 bg_train.jpg
 bg_veggie_stand.jpg
 bg_waterpark.jpg
+bg_zoo.jpg
 chara_baby01.png
 chara_baby02.png
 chara_baby07.png
@@ -140,6 +151,6 @@ chara_univ10.png
 chara_univ11.png
 chara_univ12.png
 ic_launcher.png
+intro_chara_kid12.mp4
 item_hat.png
 item_recorder.png
-intro_chara_kid12.mp4

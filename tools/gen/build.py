@@ -11,14 +11,14 @@ from board_b import JHS, HIGH, UNIV
 
 STAGES = [
     ("baby", "あかちゃん", BABY),
-    ("kinder", "ようちえん", KINDER),
+    ("kinder", "ほいくえん", KINDER),
     ("elem", "しょうがっこう", ELEM),
     ("jhs", "ちゅうがっこう", JHS),
     ("high", "こうこう", HIGH),
     ("univ", "だいがく・しんしゃかいじん", UNIV),
 ]
 
-TARGET_BG = 80
+TARGET_BG = 90
 DELTA = ("st", "sp", "pp", "mn", "move", "rest")
 
 
