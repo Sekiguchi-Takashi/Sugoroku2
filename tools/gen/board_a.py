@@ -34,6 +34,33 @@ def RANDOM(title, text, a, b, bg=None):
     return C("RANDOM", title, text, bg, choices=[a, b])
 
 
+def CL(title, text, deai=False, **kw):
+    """ぶかつマス。上がるステータスと文章は はいっている ぶかつで きまるので、
+    ここには ぶかつに よらない ぶん（おこづかいなど）だけを 書く。
+    背景も ぶかつの ものを つかうので bg は 書かない。"""
+    c = C("CLUBEVENT", title, text, None, **kw)
+    if deai:
+        c["deai"] = True
+    return c
+
+
+def DATE(title, text, bg=None, **kw):
+    """デートマス。ランダムな3人が出て、えらんだ人の こうかんどが 上がる。"""
+    return C("DATE", title, text, bg, tag="love", **kw)
+
+
+def LOVE(title, text, bg=None, **kw):
+    """こいのマス。こいびとが いなければ こくはく、いれば デートか けんか。"""
+    return C("LOVE", title, text, bg, tag="love", **kw)
+
+
+def SW(cell, tag):
+    """タイプえらびで いれかわる スロット。tag は study / sport / love。"""
+    cell["tag"] = tag
+    cell["swap"] = True
+    return cell
+
+
 def op(label, text, **d):
     o = {"label": label, "text": text}
     o.update(d)
@@ -73,8 +100,8 @@ BABY = [
 ]
 
 KINDER = [
-    C("GOOD", "ほいくえん にゅうえん", "きいろい ぼうしを かぶって はじめての とうえん。", "bg_ceremony_hall", pp=2),
-    E("あさの おうた", "ピアノに あわせて うたった。きょうも いつもどおり。"),
+    E("ほいくえんの もん", "きいろい ぼうしを かぶって もんを くぐった。"),
+    C("GOOD", "ほいくえん にゅうえん", "しきに でて せんせいに なまえを よばれた。", "bg_ceremony_hall", pp=2),
     C("GOOD", "ほいくしつの じゆうあそび", "つみきで おおきな おしろを つくった。せんせいに ほめられた。",
       "bg_nursery_room", st=3, pp=2),
     CHOICE("じゆうじかん", "そとあそびの じかん、なにする？",
@@ -119,9 +146,9 @@ KINDER = [
 ]
 
 ELEM = [
-    C("GOOD", "しょうがっこう にゅうがく", "ランドセルを せおって にゅうがくしき。", "bg_ceremony_hall", pp=2),
+    E("こうもんの まえ", "ランドセルを せおって こうもんを くぐった。"),
     C("GOOD", "はじめての ともだち", "となりの せきの子と なかよくなった。", pp=2),
-    E("あさの かい", "せんせいの はなしを きいた。とくに なにも なし。", "bg_classroom_elem"),
+    C("GOOD", "しょうがっこう にゅうがく", "たいいくかんの にゅうがくしきに でた。", "bg_ceremony_hall", pp=2),
     C("AGAIN", "きゅうしょく", "おかわりを もらって げんき まんたん。", sp=1),
     C("GOOD", "けいさんドリル", "ドリルを さいごまで やりきった。", st=3),
     E("そうじとうばん", "ほうきで きょうしつを はいた。", "bg_school_corridor"),

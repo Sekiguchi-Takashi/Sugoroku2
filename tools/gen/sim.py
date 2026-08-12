@@ -8,6 +8,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 D = json.load(open(os.path.join(ROOT, "app/src/main/assets/events_human.json"), encoding="utf-8"))
 CELLS = D["cells"]
 STAGES = D["stages"]
+CLUBS = D.get("clubs", [])
+CLUB_STAGES = set(D.get("clubStages", []))
 
 hits = collections.defaultdict(list)   # cell i -> stat value at landing
 finals = []
@@ -30,6 +32,39 @@ def apply(p, d):
 def land(p, pos, chain=True, depth=0):
     c = CELLS[pos]
     t = c["type"]
+    if t == "DATE":
+        p["aff"] = min(10, p["aff"] + 2)
+        apply(p, c)
+        return "ok"
+    if t == "LOVE":
+        apply(p, c)
+        if p["mate"]:
+            if random.random() < 0.30:
+                p["fight"] += 1
+                p["pp"] -= 2
+                if p["fight"] >= 3:
+                    p["mate"] = False
+                    p["fight"] = 0
+                    p["pp"] -= 4
+            else:
+                p["fight"] = 0
+                p["pp"] += 3
+                p["mn"] -= 900
+        elif p["aff"] >= 6:
+            if random.random() < 0.55:
+                p["mate"] = True
+                p["pp"] += 6
+            else:
+                p["aff"] = max(0, p["aff"] - 2)
+                p["pp"] -= 1
+        else:
+            p["aff"] = min(10, p["aff"] + 1)
+        return "ok"
+    if t == "CLUBEVENT":
+        if p["club"]:
+            apply(p, p["club"]["d"])
+        apply(p, c)
+        return "ok"
     if t == "STAGEGOAL":
         apply(p, c)
         return "stagegoal"
@@ -58,7 +93,8 @@ def land(p, pos, chain=True, depth=0):
 
 
 def run(nplayers=4):
-    ps = [{"pos": 0, "st": 5, "sp": 5, "pp": 5, "mn": 1000, "rest": 0, "res": [], "done": False}
+    ps = [{"pos": 0, "st": 5, "sp": 5, "pp": 5, "mn": 1000, "rest": 0, "res": [], "done": False,
+           "club": None, "aff": 0, "mate": False, "fight": 0}
           for _ in range(nplayers)]
     rolls = 0
     turn = 0
@@ -86,9 +122,17 @@ def run(nplayers=4):
             elif r == "stagegoal":
                 si = stage_of(p["pos"])
                 if si + 1 < len(STAGES):
+                    nxt = STAGES[si + 1]
                     for q in ps:
-                        q["pos"] = STAGES[si + 1]["from"]
+                        q["pos"] = nxt["from"]
                         q["rest"] = 0
+                        # ぶかつは ステージに はいるたび えらびなおす
+                        if CLUBS and nxt["key"] in CLUB_STAGES:
+                            if q["club"] and random.random() < 0.6:
+                                pass
+                            else:
+                                q["club"] = random.choice(CLUBS)
+                            apply(q, q["club"]["join"])
             elif r == "goal":
                 p["done"] = True
         if all(q["done"] for q in ps):

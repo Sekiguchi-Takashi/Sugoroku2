@@ -64,7 +64,7 @@ for c in cells:
         errors.append("missing bg drawable at %d: %s" % (c["i"], c["bg"]))
 
 # 4. type-specific required fields
-VALID = {"START", "GOAL", "NORMAL", "GOOD", "BAD", "WARP", "REST", "CHOICE", "CHALLENGE", "CRUSH", "AGAIN", "RANDOM", "STAGEGOAL"}
+VALID = {"START", "GOAL", "NORMAL", "GOOD", "BAD", "WARP", "REST", "CHOICE", "CHALLENGE", "CRUSH", "AGAIN", "RANDOM", "STAGEGOAL", "CLUBEVENT", "DATE", "LOVE"}
 for c in cells:
     if c["type"] not in VALID:
         errors.append("unknown type at %d: %s" % (c["i"], c["type"]))
@@ -138,10 +138,88 @@ for c in empty:
 bgcells = [c for c in cells if c.get("bg")]
 if len(bgcells) > 94:
     warns.append("bg つきのマスが %d。ねらいは約90" % len(bgcells))
-NODIALOG = ("CHOICE", "CRUSH", "START")
+NODIALOG = ("CHOICE", "CRUSH", "START", "CLUBEVENT")
 for c in bgcells:
     if c["type"] in NODIALOG:
         errors.append("%s は message() を開かないので bg が出ない at %d" % (c["type"], c["i"]))
+
+# 6.6 ぶかつ
+clubs = events.get("clubs", [])
+clubStages = events.get("clubStages", [])
+if clubs:
+    if len(clubs) < 2:
+        errors.append("clubs は 2つ以上ひつよう")
+    keys = set()
+    for c in clubs:
+        for k in ("key", "name", "bg", "joinText", "eventText", "deaiText", "d", "join"):
+            if k not in c:
+                errors.append("club %s に %s が ない" % (c.get("key"), k))
+        if c.get("key") in keys:
+            errors.append("club key の じゅうふく: " + str(c.get("key")))
+        keys.add(c.get("key"))
+        if c.get("bg") and c["bg"] not in imgs:
+            errors.append("missing club bg: " + c["bg"])
+    stagekeys = {st["key"] for st in stages}
+    for k in clubStages:
+        if k not in stagekeys:
+            errors.append("clubStages に しらない ステージ: " + k)
+    # ぶかつマスは ぶかつを えらんだ あとの ステージにしか 置けない
+    first = None
+    for n, st in enumerate(stages):
+        if st["key"] in clubStages:
+            first = st["from"]
+            break
+    for c in cells:
+        if c["type"] == "CLUBEVENT" and first is not None and c["i"] < first:
+            errors.append("CLUBEVENT が ぶかつ選択の まえにある at %d" % c["i"])
+elif any(c["type"] == "CLUBEVENT" for c in cells):
+    errors.append("CLUBEVENT が あるのに clubs が ない")
+
+# 6.7 タイプと いれかえスロット
+pools = events.get("pools", {})
+types = events.get("types", [])
+if pools:
+    tkeys = {t["key"] for t in types}
+    for need in ("study", "sport", "love", "balance"):
+        if need not in tkeys:
+            errors.append("types に %s が ない" % need)
+    stagemap = {st["key"]: st for st in stages}
+    for key, po in pools.items():
+        if key not in stagemap:
+            errors.append("pools に しらない ステージ: " + key)
+            continue
+        st = stagemap[key]
+        n = st["to"] - st["from"] + 1
+        slots = po.get("slots", [])
+        pcells = po.get("cells", [])
+        if len(pcells) < len(slots):
+            errors.append("%s: プールが スロットより すくない" % key)
+        for j in slots:
+            if not (0 < j < n - 1):
+                errors.append("%s: スロット %d が ステージの はしにある" % (key, j))
+            elif not cells[st["from"] + j].get("swap"):
+                errors.append("%s: スロット %d に swap がない" % (key, j))
+        tags = {c.get("tag") for c in pcells}
+        for need in ("study", "sport", "love"):
+            if need not in tags:
+                errors.append("%s: プールに %s の マスが ない" % (key, need))
+        for c in pcells:
+            if c.get("bg") and c["bg"] not in imgs:
+                errors.append("missing pool bg: " + c["bg"])
+            if c["type"] in NODIALOG and c.get("bg"):
+                errors.append("%s: %s は 背景が でない" % (key, c["type"]))
+    # こいのマスは いれかえに よらず かならず のこる
+    for key, st in stagemap.items():
+        if key not in pools:
+            continue
+        inner = cells[st["from"]:st["to"] + 1]
+        if not any(c["type"] == "DATE" for c in inner):
+            errors.append("%s に DATE が ない" % key)
+        if not any(c["type"] == "LOVE" for c in inner):
+            errors.append("%s に LOVE が ない" % key)
+        for c in inner:
+            if c["type"] in ("DATE", "LOVE") and c.get("swap"):
+                errors.append("%s: こいのマスが いれかえ たいしょうに なっている at %d" % (key, c["i"]))
 
 # 7. endings keys
 for e in events["endings"]:

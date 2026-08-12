@@ -65,10 +65,24 @@ class MainActivity : Activity() {
     )
 
     class Cell(
-        val i: Int, val type: String, val title: String, val text: String,
+        var i: Int, val type: String, val title: String, val text: String,
         val d: Delta, val move: Int, val rest: Int,
         val choices: List<Choice>, val ch: Challenge?, val love: Boolean,
-        val goalKey: String, val bg: String
+        val goalKey: String, val bg: String, val deai: Boolean,
+        val tag: String, val swap: Boolean
+    )
+
+    // タイプ（べんきょう / うんどう / こい / バランス）
+    class PlayType(val key: String, val name: String, val icon: String, val text: String)
+
+    // ステージごとの いれかえスロットと その こうほ
+    class Pool(val slots: List<Int>, val cells: List<Cell>)
+
+    // ぶかつ。d = ぶかつマス1回ぶんの のび / join = にゅうぶ時の のび
+    class Club(
+        val key: String, val name: String, val icon: String, val bg: String,
+        val joinText: String, val eventText: String, val deaiText: String,
+        val d: Delta, val join: Delta
     )
 
     class Stage(val key: String, val name: String, val from: Int, val to: Int)
@@ -88,6 +102,12 @@ class MainActivity : Activity() {
         var partner: Chara? = null
         val goals = HashSet<String>()
         var stageWins = 0
+        var club: Club? = null
+        var type = ""
+        // こうかんど（あいての なまえ → 0..10）
+        val aff = HashMap<String, Int>()
+        var fightStreak = 0
+        var exCount = 0
     }
 
     // ---------------- 状態 ----------------
@@ -117,9 +137,13 @@ class MainActivity : Activity() {
     }
     private var charas: List<Chara> = ArrayList()
     private var partners: List<Chara> = ArrayList()
-    private var cells: List<Cell> = ArrayList()
+    private var cells: MutableList<Cell> = ArrayList()
     private var stages: List<Stage> = ArrayList()
     private var endings: List<Ending> = ArrayList()
+    private var clubs: List<Club> = ArrayList()
+    private var clubStages: List<String> = ArrayList()
+    private var playTypes: List<PlayType> = ArrayList()
+    private val pools = HashMap<String, Pool>()
 
     private var players: MutableList<Player> = ArrayList()
     private var turn = 0
@@ -243,6 +267,47 @@ class MainActivity : Activity() {
         return Delta(o.optInt("st", 0), o.optInt("sp", 0), o.optInt("pp", 0), o.optInt("mn", 0))
     }
 
+    private fun readCell(o: JSONObject, fallbackIndex: Int): Cell {
+        val chs = ArrayList<Choice>()
+        val ca = o.optJSONArray("choices")
+        if (ca != null) {
+            var k = 0
+            while (k < ca.length()) {
+                val co = ca.getJSONObject(k)
+                chs.add(Choice(co.getString("label"), co.getString("text"), readDelta(co)))
+                k++
+            }
+        }
+        var chal: Challenge? = null
+        if (o.optString("type") == "CHALLENGE") {
+            chal = Challenge(
+                o.optString("stat", "st"),
+                o.optInt("need", 10),
+                o.optString("okText", "せいこう！"),
+                o.optString("ngText", "しっぱい…"),
+                readDelta(o.optJSONObject("ok")),
+                readDelta(o.optJSONObject("ng"))
+            )
+        }
+        return Cell(
+            o.optInt("i", fallbackIndex),
+            o.optString("type", "NORMAL"),
+            o.optString("title", ""),
+            o.optString("text", ""),
+            readDelta(o),
+            o.optInt("move", 0),
+            o.optInt("rest", 0),
+            chs,
+            chal,
+            o.optBoolean("love", false),
+            o.optString("goal", ""),
+            o.optString("bg", ""),
+            o.optBoolean("deai", false),
+            o.optString("tag", ""),
+            o.optBoolean("swap", false)
+        )
+    }
+
     private fun readCharaSet(root: JSONObject, setName: String): List<Chara> {
         val cl = ArrayList<Chara>()
         val sets = root.getJSONObject("sets")
@@ -291,47 +356,83 @@ class MainActivity : Activity() {
         val carr = ej.getJSONArray("cells")
         i = 0
         while (i < carr.length()) {
-            val o = carr.getJSONObject(i)
-            val chs = ArrayList<Choice>()
-            val ca = o.optJSONArray("choices")
-            if (ca != null) {
-                var k = 0
-                while (k < ca.length()) {
-                    val co = ca.getJSONObject(k)
-                    chs.add(Choice(co.getString("label"), co.getString("text"), readDelta(co)))
-                    k++
-                }
-            }
-            var chal: Challenge? = null
-            if (o.optString("type") == "CHALLENGE") {
-                chal = Challenge(
-                    o.optString("stat", "st"),
-                    o.optInt("need", 10),
-                    o.optString("okText", "せいこう！"),
-                    o.optString("ngText", "しっぱい…"),
-                    readDelta(o.optJSONObject("ok")),
-                    readDelta(o.optJSONObject("ng"))
-                )
-            }
-            list.add(
-                Cell(
-                    o.optInt("i", i),
-                    o.optString("type", "NORMAL"),
-                    o.optString("title", ""),
-                    o.optString("text", ""),
-                    readDelta(o),
-                    o.optInt("move", 0),
-                    o.optInt("rest", 0),
-                    chs,
-                    chal,
-                    o.optBoolean("love", false),
-                    o.optString("goal", ""),
-                    o.optString("bg", "")
-                )
-            )
+            list.add(readCell(carr.getJSONObject(i), i))
             i++
         }
         cells = list
+
+        pools.clear()
+        val pj = ej.optJSONObject("pools")
+        if (pj != null) {
+            val pk = pj.keys()
+            while (pk.hasNext()) {
+                val key = pk.next()
+                val po = pj.getJSONObject(key)
+                val sl = ArrayList<Int>()
+                val sa = po.getJSONArray("slots")
+                i = 0
+                while (i < sa.length()) {
+                    sl.add(sa.getInt(i))
+                    i++
+                }
+                val pc = ArrayList<Cell>()
+                val pa = po.getJSONArray("cells")
+                i = 0
+                while (i < pa.length()) {
+                    pc.add(readCell(pa.getJSONObject(i), 0))
+                    i++
+                }
+                pools[key] = Pool(sl, pc)
+            }
+        }
+
+        val tl = ArrayList<PlayType>()
+        val tarr = ej.optJSONArray("types")
+        if (tarr != null) {
+            i = 0
+            while (i < tarr.length()) {
+                val o = tarr.getJSONObject(i)
+                tl.add(
+                    PlayType(
+                        o.getString("key"), o.getString("name"),
+                        o.optString("icon", ""), o.optString("text", "")
+                    )
+                )
+                i++
+            }
+        }
+        playTypes = tl
+
+        val kl = ArrayList<Club>()
+        val karr = ej.optJSONArray("clubs")
+        if (karr != null) {
+            i = 0
+            while (i < karr.length()) {
+                val o = karr.getJSONObject(i)
+                kl.add(
+                    Club(
+                        o.getString("key"), o.getString("name"),
+                        o.optString("icon", ""), o.optString("bg", ""),
+                        o.optString("joinText", ""), o.optString("eventText", ""),
+                        o.optString("deaiText", ""),
+                        readDelta(o.optJSONObject("d")), readDelta(o.optJSONObject("join"))
+                    )
+                )
+                i++
+            }
+        }
+        clubs = kl
+
+        val ksl = ArrayList<String>()
+        val ksarr = ej.optJSONArray("clubStages")
+        if (ksarr != null) {
+            i = 0
+            while (i < ksarr.length()) {
+                ksl.add(ksarr.getString(i))
+                i++
+            }
+        }
+        clubStages = ksl
 
         val el = ArrayList<Ending>()
         val earr = ej.getJSONArray("endings")
@@ -740,6 +841,17 @@ class MainActivity : Activity() {
             sb.append(p.chara.name).append(who).append("\n")
             sb.append("  べんきょう ").append(p.st).append(" / うんどう ").append(p.sp)
             sb.append(" / にんき ").append(p.pp).append(" / ¥").append(p.mn).append("\n")
+            val cb = p.club
+            if (cb != null) sb.append("  ").append(cb.icon).append(cb.name).append("\n")
+            val mt = p.partner
+            if (mt != null) {
+                sb.append("  ♥ ").append(mt.name)
+                if (p.fightStreak > 0) sb.append("（けんか ").append(p.fightStreak).append("かい）")
+                sb.append("\n")
+            } else {
+                val tp = topCandidate(p)
+                if (tp != null) sb.append("  ").append(tp.name).append(" ").append(affBar(affOf(p, tp))).append("\n")
+            }
             val pt = p.partner
             if (pt != null) sb.append("  ♥ ").append(pt.name).append("\n")
             sb.append("  ").append(goalLine(p)).append("\n\n")
@@ -760,6 +872,8 @@ class MainActivity : Activity() {
         if (pt != null) extra = extra + "　♥" + pt.name
         else if (cr != null) extra = extra + "　…" + cr.name
         if (me.goals.size > 0) extra = extra + "　★" + me.goals.size
+        val cb = me.club
+        if (cb != null) extra = "　" + cb.icon + cb.name + extra
         bar.text = me.chara.name + tag + "　べんきょう" + me.st + " うんどう" + me.sp +
                 " にんき" + me.pp + " ¥" + me.mn + extra
     }
@@ -786,7 +900,7 @@ class MainActivity : Activity() {
         val who = if (p.cpu) "CPU" else (turn + 1).toString() + "P"
         val si = stageIndexAt(p.pos)
         statusText?.text = "ステージ" + (si + 1) + "/" + stages.size + "「" + stageName(p.pos) + "」\n" +
-                "🟢いいこと 🟣わるいこと 🟠ワープ 🔴ちょうせん 🩷こくはく 🟡ステージゴール"
+                "🟢いいこと 🟣わるいこと 🟠ワープ 🔴ちょうせん\n🩷こくはく 🟡ステージゴール 🔵ぶかつ"
         statusText2?.text = who + "・" + p.chara.name + " の ばん（" + (p.pos + 1) + " / " + cells.size + "マス）"
         startButton?.isEnabled = !p.cpu
         startButton?.alpha = if (p.cpu) 0.4f else 1f
@@ -973,6 +1087,12 @@ class MainActivity : Activity() {
             after()
             return
         }
+        // ぶかつで すでに であっている ときは そのまま
+        val already = p.crush
+        if (already != null) {
+            flash(cell.title, already.name + " の ことが やっぱり きに なる") { after() }
+            return
+        }
         val idx = ArrayList<Int>()
         var i = 0
         while (i < partners.size) {
@@ -1006,9 +1126,12 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun advanceStage(fromStage: Int) {
+    private fun advanceStage(fromStage: Int, after: () -> Unit) {
         val next = fromStage + 1
-        if (next >= stages.size) return
+        if (next >= stages.size) {
+            after()
+            return
+        }
         val to = stages[next].from
         var i = 0
         while (i < players.size) {
@@ -1019,6 +1142,397 @@ class MainActivity : Activity() {
         boardView?.focus(to)
         boardView?.invalidate()
         updateStatus()
+        // ちゅうがっこう いこうは、ステージに はいったら ぜんいんが ぶかつを えらぶ
+        if (clubs.isEmpty() || !clubStages.contains(stages[next].key)) {
+            after()
+            return
+        }
+        askClub(0, stages[next].name) {
+            askType(0, stages[next].name) {
+                rearrange(stages[next])
+                after()
+            }
+        }
+    }
+
+    // 1人ずつ タイプを えらぶ。えらんだ かずが おおい ものほど 盤面に ならぶ
+    private fun askType(index: Int, stageName: String, after: () -> Unit) {
+        if (playTypes.isEmpty()) {
+            after()
+            return
+        }
+        if (index >= players.size) {
+            after()
+            return
+        }
+        val p = players[index]
+        if (p.cpu) {
+            p.type = playTypes[Random.nextInt(playTypes.size)].key
+            handler.postDelayed({ askType(index + 1, stageName, after) }, 120)
+            return
+        }
+        val names = Array<CharSequence>(playTypes.size) { n ->
+            val t = playTypes[n]
+            t.icon + " " + t.name + "　" + t.text
+        }
+        val b = AlertDialog.Builder(this)
+        b.setTitle(stageName + "：" + p.chara.name + " の すごしかた")
+        b.setCancelable(false)
+        b.setItems(names) { _, which ->
+            p.type = playTypes[which].key
+            askType(index + 1, stageName, after)
+        }
+        b.show()
+    }
+
+    // ステージの いれかえスロットを、みんなが えらんだ タイプに よせて はりかえる
+    private fun rearrange(stage: Stage) {
+        val pool = pools[stage.key] ?: return
+        if (pool.slots.isEmpty() || pool.cells.isEmpty()) return
+        val w = HashMap<String, Int>()
+        w["study"] = 1
+        w["sport"] = 1
+        w["love"] = 1
+        w["free"] = 2
+        var i = 0
+        while (i < players.size) {
+            val t = players[i].type
+            if (t == "balance") {
+                w["study"] = (w["study"] ?: 1) + 1
+                w["sport"] = (w["sport"] ?: 1) + 1
+                w["love"] = (w["love"] ?: 1) + 1
+            } else if (t.isNotEmpty()) {
+                w[t] = (w[t] ?: 1) + 3
+            }
+            i++
+        }
+        val rest = ArrayList<Cell>(pool.cells)
+        val picked = ArrayList<Cell>()
+        while (picked.size < pool.slots.size && rest.isNotEmpty()) {
+            var total = 0
+            var k = 0
+            while (k < rest.size) {
+                total += w[rest[k].tag] ?: 1
+                k++
+            }
+            var r = Random.nextInt(if (total > 0) total else 1)
+            var hit = rest.size - 1
+            k = 0
+            while (k < rest.size) {
+                r -= w[rest[k].tag] ?: 1
+                if (r < 0) {
+                    hit = k
+                    break
+                }
+                k++
+            }
+            picked.add(rest.removeAt(hit))
+        }
+        i = 0
+        while (i < picked.size) {
+            val at = stage.from + pool.slots[i]
+            val c = picked[i]
+            c.i = at
+            cells[at] = c
+            i++
+        }
+        boardView?.invalidate()
+    }
+
+    // 1人ずつ じゅんばんに えらばせる（CPUは じどう）
+    private fun askClub(index: Int, stageName: String, after: () -> Unit) {
+        if (index >= players.size) {
+            updateStats()
+            after()
+            return
+        }
+        val p = players[index]
+        if (p.cpu) {
+            val c = pickClubForCpu(p)
+            joinClub(p, c)
+            log(p.chara.name + " は " + c.icon + c.name + " に はいった")
+            handler.postDelayed({ askClub(index + 1, stageName, after) }, Speed.eventWaitMs)
+            return
+        }
+        // 「まえと おなじ」を いちばん うえに 出して、つづけるのを かんたんにする
+        val order = ArrayList<Club>()
+        val keep = p.club
+        if (keep != null) order.add(keep)
+        var k = 0
+        while (k < clubs.size) {
+            if (clubs[k] !== keep) order.add(clubs[k])
+            k++
+        }
+        val names = Array<CharSequence>(order.size) { n ->
+            val c = order[n]
+            val head = if (c === keep) "つづける　" else ""
+            head + c.icon + " " + c.name + "　" + deltaText(c.d)
+        }
+        val b = AlertDialog.Builder(this)
+        b.setTitle(stageName + "：" + p.chara.name + " の ぶかつを えらぼう")
+        b.setCancelable(false)
+        b.setItems(names) { _, which ->
+            val c = order[which]
+            joinClub(p, c)
+            val d = AlertDialog.Builder(this)
+            d.setTitle(c.icon + c.name)
+            d.setMessage(c.joinText + "\n" + deltaText(c.join))
+            d.setCancelable(false)
+            d.setPositiveButton("OK") { _, _ -> askClub(index + 1, stageName, after) }
+            d.show()
+        }
+        b.show()
+    }
+
+    private fun pickClubForCpu(p: Player): Club {
+        // まえと おなじ ぶかつを つづけやすくする
+        val keep = p.club
+        if (keep != null && Random.nextInt(100) < 60) return keep
+        return clubs[Random.nextInt(clubs.size)]
+    }
+
+    private fun joinClub(p: Player, c: Club) {
+        p.club = c
+        applyDelta(p, c.join)
+        updateStats()
+    }
+
+    // ---------------- こい ----------------
+
+    private val AFF_MAX = 10
+    private val AFF_READY = 5
+
+    private fun affOf(p: Player, c: Chara): Int {
+        return p.aff[c.name] ?: 0
+    }
+
+    private fun addAff(p: Player, c: Chara, v: Int) {
+        var n = affOf(p, c) + v
+        if (n > AFF_MAX) n = AFF_MAX
+        if (n < 0) n = 0
+        p.aff[c.name] = n
+        // いちばん こうかんどの たかい人を「きに なる人」として かおを だす
+        if (p.partner == null) p.crush = topCandidate(p)
+        updateStats()
+    }
+
+    private fun topCandidate(p: Player): Chara? {
+        var best: Chara? = null
+        var bv = 0
+        var i = 0
+        while (i < partners.size) {
+            val v = affOf(p, partners[i])
+            if (v > bv) {
+                bv = v
+                best = partners[i]
+            }
+            i++
+        }
+        return best
+    }
+
+    // デート: ランダムな3人だけ でてくる
+    private fun doDate(p: Player, cell: Cell, after: () -> Unit) {
+        if (partners.isEmpty()) {
+            after()
+            return
+        }
+        val mate = p.partner
+        if (mate != null) {
+            applyDelta(p, cell.d)
+            val d = Delta(0, 0, 2, -300)
+            applyDelta(p, d)
+            p.fightStreak = 0
+            message(cell.title, cell.text + "\n\n" + mate.name + " と ふたりで でかけた。\n" + deltaText(d)) { after() }
+            return
+        }
+        val idx = ArrayList<Int>()
+        var i = 0
+        while (i < partners.size) {
+            idx.add(i)
+            i++
+        }
+        idx.shuffle()
+        val pool = ArrayList<Chara>()
+        i = 0
+        while (i < idx.size && pool.size < 3) {
+            pool.add(partners[idx[i]])
+            i++
+        }
+        applyDelta(p, cell.d)
+        if (p.cpu) {
+            val c = pool[Random.nextInt(pool.size)]
+            addAff(p, c, 3)
+            flash(cell.title, c.name + " と はなした") { after() }
+            return
+        }
+        val names = Array<CharSequence>(pool.size) { k ->
+            val c = pool[k]
+            c.name + "　" + affBar(affOf(p, c))
+        }
+        val b = AlertDialog.Builder(this)
+        b.setTitle(cell.title + "：だれを さそう？")
+        b.setMessage(cell.text)
+        b.setCancelable(false)
+        b.setItems(names) { _, which ->
+            val c = pool[which]
+            addAff(p, c, 3)
+            val d = AlertDialog.Builder(this)
+            d.setTitle(c.name)
+            d.setMessage("いっしょに すごした。\nなかよし " + affBar(affOf(p, c)))
+            d.setCancelable(false)
+            d.setPositiveButton("OK") { _, _ -> after() }
+            d.show()
+        }
+        b.show()
+    }
+
+    private fun affBar(v: Int): String {
+        val sb = StringBuilder()
+        var i = 0
+        while (i < AFF_MAX) {
+            sb.append(if (i < v) "♥" else "・")
+            i++
+        }
+        return sb.toString()
+    }
+
+    // こいのマス
+    private fun doLove(p: Player, cell: Cell, after: () -> Unit) {
+        applyDelta(p, cell.d)
+        val mate = p.partner
+        if (mate != null) {
+            coupleEvent(p, cell, mate, after)
+            return
+        }
+        if (partners.isEmpty()) {
+            after()
+            return
+        }
+        val top = topCandidate(p)
+        val v = if (top == null) 0 else affOf(p, top)
+        if (top == null || v < AFF_READY) {
+            // まだ きっかけが ない。だれかと すこし ちかづく
+            val c = partners[Random.nextInt(partners.size)]
+            addAff(p, c, 1)
+            message(cell.title, cell.text + "\n\n" + c.name + " と すこし はなした。\nなかよし " +
+                    affBar(affOf(p, c))) { after() }
+            return
+        }
+        // あいてから こくはくされる ことも ある
+        if (Random.nextInt(100) < 25 + v * 3) {
+            becomeCouple(p, top, cell, top.name + " から こくはく された！", after)
+            return
+        }
+        if (p.cpu) {
+            if (Random.nextInt(100) < 60) tryConfess(p, top, cell, after) else {
+                flash(cell.title, "こえを かけられなかった") { after() }
+            }
+            return
+        }
+        val b = AlertDialog.Builder(this)
+        b.setTitle(cell.title)
+        b.setMessage(cell.text + "\n\n" + top.name + "　" + affBar(v))
+        b.setCancelable(false)
+        b.setPositiveButton("こくはくする") { _, _ -> tryConfess(p, top, cell, after) }
+        b.setNegativeButton("きょうは やめておく") { _, _ ->
+            addAff(p, top, 1)
+            flash(cell.title, "また こんど はなそう") { after() }
+        }
+        b.show()
+    }
+
+    private fun tryConfess(p: Player, c: Chara, cell: Cell, after: () -> Unit) {
+        val v = affOf(p, c)
+        val chance = 20 + v * 7 + p.pp / 3
+        if (Random.nextInt(100) < chance) {
+            becomeCouple(p, c, cell, "きもちが つうじた！", after)
+            return
+        }
+        addAff(p, c, -2)
+        val d = Delta(1, 0, -1, 0)
+        applyDelta(p, d)
+        message(cell.title, "「ともだちで いよう」と いわれた。\n" + deltaText(d)) { after() }
+    }
+
+    private fun becomeCouple(p: Player, c: Chara, cell: Cell, head: String, after: () -> Unit) {
+        p.partner = c
+        p.crush = c
+        p.fightStreak = 0
+        p.aff[c.name] = AFF_MAX
+        val d = Delta(0, 0, 6, 0)
+        applyDelta(p, d)
+        var body = head + "\n" + c.name + " と こいびとに なった！\n" + deltaText(d)
+        if (!p.goals.contains("love")) {
+            p.goals.add("love")
+            body = body + "\n\n★ もくひょう たっせい： " + goalLabel("love")
+        }
+        updateStats()
+        message(cell.title, body) { after() }
+    }
+
+    // こいびとが いる ときの こいのマス
+    private fun coupleEvent(p: Player, cell: Cell, mate: Chara, after: () -> Unit) {
+        if (Random.nextInt(100) < 30) {
+            p.fightStreak++
+            val d = Delta(0, 0, -2, 0)
+            applyDelta(p, d)
+            if (p.fightStreak >= 3) {
+                val bd = Delta(1, 0, -4, 0)
+                applyDelta(p, bd)
+                p.partner = null
+                p.fightStreak = 0
+                p.exCount++
+                p.aff[mate.name] = 2
+                p.crush = topCandidate(p)
+                updateStats()
+                message(cell.title, "また けんかを して しまった。3かい つづけて…\n\n" +
+                        mate.name + " と わかれる ことに なった。\n" + deltaText(bd)) { after() }
+                return
+            }
+            message(cell.title, cell.text + "\n\n" + mate.name + " と けんかを した。（" +
+                    p.fightStreak + "かい つづけて）\n" + deltaText(d)) { after() }
+            return
+        }
+        p.fightStreak = 0
+        val kind = Random.nextInt(3)
+        val d: Delta
+        val txt: String
+        if (kind == 0) {
+            d = Delta(0, 1, 4, -2000)
+            txt = mate.name + " と りょこうに でかけた。"
+        } else if (kind == 1) {
+            d = Delta(1, 0, 3, -800)
+            txt = mate.name + " に プレゼントを えらんだ。"
+        } else {
+            d = Delta(0, 0, 3, 0)
+            txt = mate.name + " と ながく はなした。"
+        }
+        applyDelta(p, d)
+        message(cell.title, cell.text + "\n\n" + txt + "\n" + deltaText(d)) { after() }
+    }
+
+    private fun doClubEvent(p: Player, cell: Cell, after: () -> Unit) {
+        val c = p.club
+        if (c == null) {
+            applyDelta(p, cell.d)
+            message(cell.title, cell.text + "\n" + deltaText(cell.d)) { after() }
+            return
+        }
+        currentBg = c.bg
+        applyDelta(p, c.d)
+        applyDelta(p, cell.d)
+        val gain = deltaText(c.d)
+        val extra = deltaText(cell.d)
+        var body = c.icon + c.name + "\n\n" + cell.text + "\n" + c.eventText + "\n" + gain
+        if (extra.isNotEmpty()) body = body + "　" + extra
+        // ぶかつでの であい。まだ きに なる人が いない ときだけ おきる
+        if (cell.deai && p.partner == null && partners.size > 0) {
+            val met = partners[Random.nextInt(partners.size)]
+            addAff(p, met, 3)
+            body = body + "\n\n" + c.deaiText + "\n" + met.name + "　" + affBar(affOf(p, met))
+        }
+        message(cell.title, body) { after() }
     }
 
     private fun onLanded(p: Player, allowChain: Boolean) {
@@ -1034,8 +1548,7 @@ class MainActivity : Activity() {
             val body = cell.text + "\n\n" + p.chara.name + " が いちばんに " + stages[si].name +
                     " を ぬけた！\n\nみんなで " + nextName + " へ すすむ。"
             message(cell.title, body) {
-                advanceStage(si)
-                handler.postDelayed({ nextTurn() }, 250)
+                advanceStage(si) { handler.postDelayed({ nextTurn() }, 250) }
             }
             return
         }
@@ -1087,6 +1600,21 @@ class MainActivity : Activity() {
             message(cell.title, cell.text + "\n\n" + c.label + "\n" + c.text + "\n" + deltaText(c.d)) {
                 afterCell(p, cell, allowChain)
             }
+            return
+        }
+
+        if (cell.type == "DATE") {
+            doDate(p, cell) { afterCell(p, cell, allowChain) }
+            return
+        }
+
+        if (cell.type == "LOVE") {
+            doLove(p, cell) { afterCell(p, cell, allowChain) }
+            return
+        }
+
+        if (cell.type == "CLUBEVENT") {
+            doClubEvent(p, cell) { afterCell(p, cell, allowChain) }
             return
         }
 
@@ -1445,6 +1973,9 @@ class MainActivity : Activity() {
             if (type == "CHALLENGE") return Color.parseColor("#EF5350")
             if (type == "STAGEGOAL") return Color.parseColor("#FFD166")
             if (type == "CRUSH") return Color.parseColor("#F48FB1")
+            if (type == "CLUBEVENT") return Color.parseColor("#4FC3F7")
+            if (type == "DATE") return Color.parseColor("#F8BBD0")
+            if (type == "LOVE") return Color.parseColor("#EC407A")
             if (type == "AGAIN") return Color.parseColor("#4DB6AC")
             if (type == "RANDOM") return Color.parseColor("#CE93D8")
             return Color.parseColor("#FFF8E1")
@@ -1456,6 +1987,9 @@ class MainActivity : Activity() {
             if (type == "STAGEGOAL") return "🚩"
             if (type == "CHALLENGE") return "🌸"
             if (type == "CRUSH") return "💗"
+            if (type == "CLUBEVENT") return "🏅"
+            if (type == "DATE") return "☕"
+            if (type == "LOVE") return "💞"
             if (type == "GOOD") return "⭐"
             if (type == "BAD") return "💧"
             if (type == "WARP") return "🌀"
