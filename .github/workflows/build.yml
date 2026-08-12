@@ -14,7 +14,27 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v3
+      - id: gradle1
+        uses: gradle/actions/setup-gradle@v4
+        continue-on-error: true
+        with:
+          gradle-version: '8.9'
+          cache-read-only: false
+      - name: Wait before retrying Gradle provisioning
+        if: steps.gradle1.outcome == 'failure'
+        run: sleep 120
+      - id: gradle2
+        if: steps.gradle1.outcome == 'failure'
+        uses: gradle/actions/setup-gradle@v4
+        continue-on-error: true
+        with:
+          gradle-version: '8.9'
+          cache-read-only: false
+      - name: Wait before final Gradle provisioning attempt
+        if: steps.gradle1.outcome == 'failure' && steps.gradle2.outcome == 'failure'
+        run: sleep 240
+      - if: steps.gradle1.outcome == 'failure' && steps.gradle2.outcome == 'failure'
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
           cache-read-only: false
