@@ -8,15 +8,26 @@ KT = os.path.join(ROOT, "app/src/main/kotlin/com/appathy/sugoroku/human/MainActi
 ASSETS = os.path.join(ROOT, "app/src/main/assets")
 DRAWABLE = os.path.join(ROOT, "app/src/main/res/drawable")
 
+ASSET_LIST = os.path.join(ROOT, "tools/asset_list.txt")
+
 errors = []
 warns = []
+
+
+def drawable_names():
+    """res/drawable があればそれを、無ければ tools/asset_list.txt を正とする。
+    納品ZIPは画像を含まないので、そのままでも検証が通るようにしている。"""
+    if os.path.isdir(DRAWABLE):
+        return {os.path.splitext(f)[0] for f in os.listdir(DRAWABLE)}
+    warns.append("res/drawable が無いので tools/asset_list.txt で検証した")
+    return {os.path.splitext(l.strip())[0] for l in open(ASSET_LIST, encoding="utf-8") if l.strip()}
 
 # 1. JSON parse
 charas = json.load(open(os.path.join(ASSETS, "charas_human.json"), encoding="utf-8"))
 events = json.load(open(os.path.join(ASSETS, "events_human.json"), encoding="utf-8"))
 
 # 2. drawable references
-imgs = {os.path.splitext(f)[0] for f in os.listdir(DRAWABLE)}
+imgs = drawable_names()
 for setname, st in charas["sets"].items():
     for c in st["charas"]:
         if c["img"] not in imgs:
@@ -42,7 +53,7 @@ for n, st in enumerate(stages[:-1]):
 for n, st in enumerate(stages):
     if n > 0 and st["from"] != stages[n - 1]["to"] + 1:
         errors.append("stage range gap before %s" % st["key"])
-bgs = {os.path.splitext(f)[0] for f in os.listdir(DRAWABLE)}
+bgs = imgs
 for c in cells:
     if c.get("bg") and c["bg"] not in bgs:
         errors.append("missing bg drawable at %d: %s" % (c["i"], c["bg"]))
@@ -96,6 +107,36 @@ for m in re.finditer(r"\$[A-Za-z_][A-Za-z0-9_]*", src):
         errors.append("string template trap: %s followed by non-ascii" % m.group(0))
 if re.search(r"\becho\b", src):
     warns.append("echo found in source")
+
+# 6.5 盤面のかたち（195マス構成の規約）
+EXPECT = [("baby", 15), ("kinder", 20), ("elem", 40), ("jhs", 40), ("high", 40), ("univ", 40)]
+if len(stages) != len(EXPECT):
+    errors.append("stage count must be %d" % len(EXPECT))
+else:
+    for st, (key, n) in zip(stages, EXPECT):
+        if st["key"] != key:
+            errors.append("stage key mismatch: %s != %s" % (st["key"], key))
+        if st["to"] - st["from"] + 1 != n:
+            errors.append("stage %s must have %d cells (has %d)" % (key, n, st["to"] - st["from"] + 1))
+if len(cells) != sum(n for _, n in EXPECT):
+    errors.append("board must be %d cells (has %d)" % (sum(n for _, n in EXPECT), len(cells)))
+
+DELTA = ("st", "sp", "pp", "mn", "move", "rest")
+empty = [c for c in cells if c["type"] == "NORMAL" and not any(k in c for k in DELTA)]
+ratio = len(empty) / float(len(cells))
+if not (0.20 <= ratio <= 0.30):
+    warns.append("通過マスが %d マス（%.1f%%）。ねらいは約25%%" % (len(empty), ratio * 100))
+for c in empty:
+    if c.get("bg"):
+        errors.append("通過マスに bg があるが表示されない at %d" % c["i"])
+
+bgcells = [c for c in cells if c.get("bg")]
+if len(bgcells) > 84:
+    warns.append("bg つきのマスが %d。ねらいは約80" % len(bgcells))
+NODIALOG = ("CHOICE", "CRUSH", "START")
+for c in bgcells:
+    if c["type"] in NODIALOG:
+        errors.append("%s は message() を開かないので bg が出ない at %d" % (c["type"], c["i"]))
 
 # 7. endings keys
 for e in events["endings"]:

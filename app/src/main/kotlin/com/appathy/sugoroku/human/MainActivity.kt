@@ -2,6 +2,7 @@ package com.appathy.sugoroku.human
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AlertDialog
@@ -11,12 +12,9 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
-import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.Rect
 import android.graphics.RectF
-import android.graphics.Shader
 import android.graphics.Typeface
 import android.media.MediaPlayer
 import android.net.Uri
@@ -28,6 +26,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.LinearInterpolator
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -37,8 +36,9 @@ import android.widget.TextView
 import android.widget.Toast
 import android.widget.VideoView
 import org.json.JSONObject
-import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -103,6 +103,18 @@ class MainActivity : Activity() {
         val cpuWaitMs get() = if (fast) 400L else 1000L
         val eventWaitMs get() = if (fast) 350L else 700L
     }
+
+    // ---- 盤面ズーム（A面と同じ。画面に何マス見えるか）----
+    object Zoom {
+        val steps = floatArrayOf(3f, 5f, 8f)
+        var index = 0
+        val cells: Float get() = steps[index]
+        val label: String get() = steps[index].toInt().toString() + "マス"
+        val isMax: Boolean get() = index == steps.size - 1
+        fun next() { index = (index + 1) % steps.size }
+        // 縮小するほどマスが潰れるので、比率を少し大きめに補正する
+        val cellRatio: Float get() = if (index == 0) 0.27f else if (index == 1) 0.30f else 0.33f
+    }
     private var charas: List<Chara> = ArrayList()
     private var partners: List<Chara> = ArrayList()
     private var cells: List<Cell> = ArrayList()
@@ -121,7 +133,7 @@ class MainActivity : Activity() {
     private var roulette: RouletteView? = null
     private var statusText: TextView? = null
     private var logText: TextView? = null
-    private var statsBox: LinearLayout? = null
+    private var statsBar: TextView? = null
     private val logs = ArrayList<String>()
 
     private fun dp(v: Float): Float = v * resources.displayMetrics.density
@@ -572,6 +584,7 @@ class MainActivity : Activity() {
 
     private var statusText2: TextView? = null
     private var speedButton: Button? = null
+    private var zoomButton: Button? = null
     private var startButton: Button? = null
 
     private fun updateSpeedLabel() {
@@ -588,19 +601,44 @@ class MainActivity : Activity() {
 
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
-        root.setBackgroundColor(Color.parseColor("#FFF6E5"))
+        root.setBackgroundColor(Color.parseColor("#E8F5E9"))
 
-        // 情報行（ステージ名・凡例）＋ はやさ切替
+        // 盤面（A面と同じく画面の上側いっぱい。ミニマップは盤面内に描く）
+        val bv = BoardView(this)
+        boardView = bv
+        root.addView(bv, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+
+        // 情報行（ステージ名・凡例）＋ ズーム / はやさ
         val infoRow = LinearLayout(this)
         infoRow.orientation = LinearLayout.HORIZONTAL
         infoRow.gravity = Gravity.CENTER_VERTICAL
-        infoRow.setPadding(dpi(12f), dpi(4f), dpi(12f), 0)
+        infoRow.setPadding(dpi(12f), 0, dpi(12f), 0)
 
         val st = TextView(this)
         st.textSize = 11f
         st.setTextColor(Color.parseColor("#558B2F"))
         statusText = st
         infoRow.addView(st, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+        val btnCol = LinearLayout(this)
+        btnCol.orientation = LinearLayout.VERTICAL
+        btnCol.gravity = Gravity.END
+
+        val zb = Button(this)
+        zb.textSize = 12f
+        zb.minHeight = 0
+        zb.minimumHeight = 0
+        zb.setTextColor(Color.WHITE)
+        zb.background = roundedBg(Color.parseColor("#5E35B1"))
+        zb.setPadding(dpi(10f), dpi(5f), dpi(10f), dpi(5f))
+        zb.setOnClickListener {
+            boardView?.cycleZoom(players.getOrNull(turn)?.pos ?: 0)
+            updateZoomLabel()
+        }
+        zoomButton = zb
+        btnCol.addView(zb)
+        updateZoomLabel()
 
         val sb2 = Button(this)
         sb2.textSize = 12f
@@ -614,7 +652,11 @@ class MainActivity : Activity() {
         }
         speedButton = sb2
         updateSpeedLabel()
-        infoRow.addView(sb2)
+        val slp2 = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        slp2.topMargin = dpi(4f)
+        btnCol.addView(sb2, slp2)
+        infoRow.addView(btnCol)
         root.addView(infoRow)
 
         // 手番の見出し
@@ -626,13 +668,6 @@ class MainActivity : Activity() {
         st2.setPadding(dpi(8f), dpi(2f), dpi(8f), dpi(2f))
         statusText2 = st2
         root.addView(st2)
-
-        val bv = BoardView(this)
-        bv.layoutParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
-        )
-        boardView = bv
-        root.addView(bv)
 
         val lg = TextView(this)
         lg.textSize = 12f
@@ -680,16 +715,18 @@ class MainActivity : Activity() {
             0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(controlRow)
 
-        // 下部のステータスバー
-        val sb = LinearLayout(this)
-        sb.orientation = LinearLayout.HORIZONTAL
+        // 下部のステータスバー（A面と同じ1行表示。全員ぶんはステータスボタンで見る）
+        val sb = TextView(this)
+        sb.textSize = 13f
+        sb.gravity = Gravity.CENTER
+        sb.setTextColor(Color.WHITE)
         sb.setBackgroundColor(Color.parseColor("#33691E"))
         sb.setPadding(dpi(8f), dpi(5f), dpi(8f), dpi(5f))
-        statsBox = sb
+        statsBar = sb
         root.addView(sb)
 
         setContentView(root)
-        buildStatsBox()
+        updateStats()
         log("ゲームスタート！")
         beginTurn()
     }
@@ -713,49 +750,18 @@ class MainActivity : Activity() {
             .setPositiveButton("とじる", null).show()
     }
 
-    private fun buildStatsBox() {
-        val sb = statsBox ?: return
-        sb.removeAllViews()
-        var i = 0
-        while (i < players.size) {
-            val p = players[i]
-            val box = LinearLayout(this)
-            box.orientation = LinearLayout.VERTICAL
-            box.gravity = Gravity.CENTER
-            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            box.layoutParams = lp
-            val t1 = label("", 12f, Color.WHITE)
-            val t2 = label("", 10f, Color.parseColor("#DCEDC8"))
-            box.addView(t1)
-            box.addView(t2)
-            box.tag = arrayOf(t1, t2)
-            sb.addView(box)
-            i++
-        }
-        updateStats()
-    }
-
     private fun updateStats() {
-        val sb = statsBox ?: return
-        var i = 0
-        while (i < players.size && i < sb.childCount) {
-            val p = players[i]
-            val box = sb.getChildAt(i) as LinearLayout
-            val tags = box.tag as Array<*>
-            val t1 = tags[0] as TextView
-            val t2 = tags[1] as TextView
-            val mark = if (i == turn) "▶ " else ""
-            val cpuMark = if (p.cpu) "(CPU)" else ""
-            t1.text = mark + p.chara.name + cpuMark
-            t1.setTypeface(if (i == turn) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
-            var extra = ""
-            val pt = p.partner
-            val cr = p.crush
-            if (pt != null) extra = "\n♥" + pt.name else if (cr != null) extra = "\n…" + cr.name
-            if (p.goals.size > 0) extra = extra + "\n★" + p.goals.size
-            t2.text = "べ" + p.st + " う" + p.sp + " に" + p.pp + "\n¥" + p.mn + extra
-            i++
-        }
+        val bar = statsBar ?: return
+        val me = players.getOrNull(turn) ?: return
+        val tag = if (me.cpu) "（CPU）" else ""
+        var extra = ""
+        val pt = me.partner
+        val cr = me.crush
+        if (pt != null) extra = extra + "　♥" + pt.name
+        else if (cr != null) extra = extra + "　…" + cr.name
+        if (me.goals.size > 0) extra = extra + "　★" + me.goals.size
+        bar.text = me.chara.name + tag + "　べんきょう" + me.st + " うんどう" + me.sp +
+                " にんき" + me.pp + " ¥" + me.mn + extra
     }
 
     private fun log(s: String) {
@@ -780,11 +786,17 @@ class MainActivity : Activity() {
         val who = if (p.cpu) "CPU" else (turn + 1).toString() + "P"
         val si = stageIndexAt(p.pos)
         statusText?.text = "ステージ" + (si + 1) + "/" + stages.size + "「" + stageName(p.pos) + "」\n" +
-                "🟢いいこと 🟣わるいこと 🟠ワープ 🔴ちょうせん 🩷こくはく"
+                "🟢いいこと 🟣わるいこと 🟠ワープ 🔴ちょうせん 🩷こくはく 🟡ステージゴール"
         statusText2?.text = who + "・" + p.chara.name + " の ばん（" + (p.pos + 1) + " / " + cells.size + "マス）"
         startButton?.isEnabled = !p.cpu
         startButton?.alpha = if (p.cpu) 0.4f else 1f
+        boardView?.turnIndex = turn
         updateStats()
+    }
+
+    private fun updateZoomLabel() {
+        val zb = zoomButton ?: return
+        zb.text = "🔍 " + Zoom.label + "ぶん" + (if (Zoom.isMax) "（さいだい）" else "")
     }
 
     // ---------------- ターン進行 ----------------
@@ -1132,7 +1144,7 @@ class MainActivity : Activity() {
             return
         }
         if (cell.move != 0 && allowChain) {
-            val to = clampPos(p.pos + cell.move)
+            val to = clampStage(p.pos, p.pos + cell.move)
             handler.postDelayed({ slideTo(p, to) }, 250)
             return
         }
@@ -1143,6 +1155,16 @@ class MainActivity : Activity() {
         if (v < 0) return 0
         if (v > cells.size - 1) return cells.size - 1
         return v
+    }
+
+    // ワープはステージをまたがない（またぐと STAGEGOAL を踏まずに先へ行けてしまう）
+    private fun clampStage(from: Int, v: Int): Int {
+        var t = clampPos(v)
+        if (stages.isEmpty()) return t
+        val s = stages[stageIndexAt(from)]
+        if (t > s.to) t = s.to
+        if (t < s.from) t = s.from
+        return t
     }
 
     private fun slideTo(p: Player, to: Int) {
@@ -1281,49 +1303,116 @@ class MainActivity : Activity() {
         setContentView(sv)
     }
 
-    // ---------------- 盤面ビュー ----------------
+    // ---------------- 盤面ビュー（A面スタイル：写真背景＋ミニマップ＋フラットな円マス） ----------------
 
     inner class BoardView(ctx: Context) : View(ctx) {
 
-        private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        var turnIndex = 0
+
         private val bmps = HashMap<Int, Bitmap>()
         private var camX = 0f
-        private var targetX = 0f
-        private var inited = false
+        private var camAnim: ValueAnimator? = null
+        private var spacing = 0f
+        private var cellR = 0f
+        private var laneY = 0f
+        private var lastFocus = 0
 
-        private fun cellW(): Float = dp(88f)
-        private fun cellX(i: Int): Float = dp(60f) + i * cellW()
-        // 奥行き（0.56=奥 〜 1.0=手前）。道が奥へ入って手前へ戻る擬似3D
-        private fun depth(i: Int): Float = 0.82f + 0.18f * sin(i * 0.40f)
-        private fun cellY(i: Int): Float = height * 0.60f - (1f - depth(i)) * dp(70f)
-        private fun tileRx(i: Int): Float = dp(26f) * depth(i)
-        private fun tileRy(i: Int): Float = dp(26f) * depth(i) * 0.45f
+        private val pathPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val mapBgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val mapEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val mapLinePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val mapCellPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-        private fun drawPiece(canvas: Canvas, pl: Player, index: Int) {
-            val d = depth(pl.pos)
-            val cx = cellX(pl.pos) + (index - (players.size - 1) / 2f) * dp(20f) * d
-            val cy = cellY(pl.pos) + tileRy(pl.pos) * 0.35f
-            val size = dp(58f) * d
-            p.color = Color.parseColor("#40000000")
-            canvas.drawOval(RectF(cx - size * 0.26f, cy - size * 0.08f, cx + size * 0.26f, cy + size * 0.08f), p)
-            if (index == turn) {
-                p.color = Color.parseColor("#FFE08A")
-                canvas.drawOval(RectF(cx - size * 0.34f, cy - size * 0.11f, cx + size * 0.34f, cy + size * 0.11f), p)
-            }
-            val rid = charaRes(pl.chara, stageKeyAt(pl.pos), "_s")
-            if (rid != 0) {
-                val b = bmp(rid)
-                val dst = RectF(cx - size / 2f, cy - size, cx + size / 2f, cy)
-                canvas.drawBitmap(b, Rect(0, 0, b.width, b.height), dst, null)
+        private var bounce = 0f
+        private val bounceAnim = ValueAnimator.ofFloat(0f, (Math.PI * 2).toFloat())
+
+        init {
+            pathPaint.color = Color.parseColor("#C9A66B")
+            pathPaint.strokeWidth = dp(9f)
+            pathPaint.strokeCap = Paint.Cap.ROUND
+            edgePaint.color = Color.parseColor("#8D6E63")
+            edgePaint.style = Paint.Style.STROKE
+            edgePaint.strokeWidth = dp(2f)
+            textPaint.color = Color.parseColor("#5D4037")
+            textPaint.textAlign = Paint.Align.CENTER
+            textPaint.setTypeface(Typeface.DEFAULT_BOLD)
+            shadowPaint.color = Color.argb(70, 0, 0, 0)
+            mapBgPaint.color = Color.argb(220, 255, 255, 255)
+            mapEdgePaint.color = Color.parseColor("#8D6E63")
+            mapEdgePaint.style = Paint.Style.STROKE
+            mapEdgePaint.strokeWidth = dp(1.5f)
+            mapLinePaint.color = Color.parseColor("#C9A66B")
+            mapLinePaint.strokeWidth = dp(2f)
+            mapLinePaint.strokeCap = Paint.Cap.ROUND
+
+            bounceAnim.duration = 900
+            bounceAnim.repeatCount = ValueAnimator.INFINITE
+            bounceAnim.interpolator = LinearInterpolator()
+            bounceAnim.addUpdateListener { a ->
+                bounce = a.animatedValue as Float
+                invalidate()
             }
         }
 
-        fun focus(pos: Int) {
-            targetX = cellX(pos) - width / 2f
-            val maxX = cellX(cells.size - 1) - width / 2f + dp(60f)
-            if (targetX > maxX) targetX = maxX
-            if (targetX < 0f) targetX = 0f
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            bounceAnim.start()
+        }
+
+        override fun onDetachedFromWindow() {
+            bounceAnim.cancel()
+            camAnim?.cancel()
+            super.onDetachedFromWindow()
+        }
+
+        private fun worldX(i: Int): Float = spacing * i
+
+        private fun applyMetrics() {
+            if (width == 0) return
+            spacing = width / Zoom.cells
+            cellR = spacing * Zoom.cellRatio
+            laneY = height * 0.72f
+            // 縮小してもマスの記号が読めるよう、文字サイズに下限を設ける
+            val minText = dp(11f)
+            val t = cellR * 0.62f
+            textPaint.textSize = if (t > minText) t else minText
+        }
+
+        // 表示中の位置を保ったまま倍率だけ変える
+        fun cycleZoom(focusCell: Int) {
+            Zoom.next()
+            applyMetrics()
+            camAnim?.cancel()
+            camX = worldX(focusCell)
             invalidate()
+        }
+
+        fun focus(i: Int) {
+            lastFocus = i
+            if (spacing == 0f) {
+                invalidate()
+                return
+            }
+            val target = worldX(i)
+            camAnim?.cancel()
+            val an = ValueAnimator.ofFloat(camX, target)
+            an.duration = 220
+            an.interpolator = DecelerateInterpolator()
+            an.addUpdateListener { a ->
+                camX = a.animatedValue as Float
+                invalidate()
+            }
+            camAnim = an
+            an.start()
+        }
+
+        override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
+            applyMetrics()
+            camX = worldX(lastFocus)
         }
 
         private fun bmp(resId: Int): Bitmap {
@@ -1335,193 +1424,221 @@ class MainActivity : Activity() {
             return b!!
         }
 
-        private fun cellColor(type: String): Int {
-            if (type == "START") return Color.parseColor("#B7B7A4")
-            if (type == "GOAL") return Color.parseColor("#F4A259")
-            if (type == "GOOD") return Color.parseColor("#8FC48F")
-            if (type == "BAD") return Color.parseColor("#A98BC0")
-            if (type == "WARP") return Color.parseColor("#F2C14E")
-            if (type == "REST") return Color.parseColor("#9FB8C8")
-            if (type == "CHOICE") return Color.parseColor("#F2A6B3")
-            if (type == "CHALLENGE") return Color.parseColor("#E36B6B")
-            return Color.parseColor("#F5EBD8")
+        // ステージごとの盤面背景（イベント用の bg_*.jpg を流用）
+        private fun boardBgName(si: Int): String {
+            if (si == 0) return "bg_park_day"
+            if (si == 1) return "bg_playground"
+            if (si == 2) return "bg_schoolyard"
+            if (si == 3) return "bg_school_route"
+            if (si == 4) return "bg_highschool_day"
+            return "bg_town_crossing"
         }
 
-        private fun stageIndexAt(x: Float): Int {
-            val idx = ((x - dp(60f)) / cellW()).toInt()
-            var i = 0
-            while (i < stages.size) {
-                if (idx >= stages[i].from && idx <= stages[i].to) return i
-                i++
-            }
-            return if (idx < 0) 0 else stages.size - 1
+        private fun cellColor(type: String): Int {
+            if (type == "START") return Color.parseColor("#81C784")
+            if (type == "GOAL") return Color.parseColor("#FFB74D")
+            if (type == "GOOD") return Color.parseColor("#66BB6A")
+            if (type == "BAD") return Color.parseColor("#9575CD")
+            if (type == "WARP") return Color.parseColor("#FF9800")
+            if (type == "REST") return Color.parseColor("#90A4AE")
+            if (type == "CHOICE") return Color.parseColor("#F2A6B3")
+            if (type == "CHALLENGE") return Color.parseColor("#EF5350")
+            if (type == "STAGEGOAL") return Color.parseColor("#FFD166")
+            if (type == "CRUSH") return Color.parseColor("#F48FB1")
+            if (type == "AGAIN") return Color.parseColor("#4DB6AC")
+            if (type == "RANDOM") return Color.parseColor("#CE93D8")
+            return Color.parseColor("#FFF8E1")
+        }
+
+        private fun symbolOf(type: String): String {
+            if (type == "START") return "S"
+            if (type == "GOAL") return "G"
+            if (type == "STAGEGOAL") return "🚩"
+            if (type == "CHALLENGE") return "🌸"
+            if (type == "CRUSH") return "💗"
+            if (type == "GOOD") return "⭐"
+            if (type == "BAD") return "💧"
+            if (type == "WARP") return "🌀"
+            if (type == "REST") return "💤"
+            if (type == "CHOICE") return "❓"
+            if (type == "RANDOM") return "🎲"
+            if (type == "AGAIN") return "🔁"
+            return ""
         }
 
         override fun onDraw(canvas: Canvas) {
-            if (!inited && players.size > 0) {
-                inited = true
-                camX = cellX(players[turn].pos) - width / 2f
-                if (camX < 0f) camX = 0f
-                targetX = camX
+            if (spacing == 0f) applyMetrics()
+            if (spacing == 0f || cells.isEmpty()) return
+            var camCell = (camX / spacing + 0.5f).toInt()
+            if (camCell < 0) camCell = 0
+            if (camCell > cells.size - 1) camCell = cells.size - 1
+            val si = stageIndexAt(camCell)
+            drawPhoto(canvas, si)
+            drawTrack(canvas)
+            drawMiniMap(canvas, si)
+        }
+
+        // 写真背景。カメラの0.25倍でパララックス、左右反転しながら並べて継ぎ目なし（A面と同じ）
+        private fun drawPhoto(canvas: Canvas, si: Int) {
+            val rid = resOf(boardBgName(si), "")
+            if (rid == 0) {
+                canvas.drawColor(Color.parseColor("#DFF3FB"))
+                return
             }
-
-            val si = stageIndexAt(camX + width / 2f)
-            val skyTop: Int
-            val skyBottom: Int
-            val groundC: Int
-            if (si == 0) {
-                skyTop = Color.parseColor("#9BD3F0")
-                skyBottom = Color.parseColor("#DFF3FB")
-                groundC = Color.parseColor("#9CCB86")
-            } else if (si == 1) {
-                skyTop = Color.parseColor("#7FB7E8")
-                skyBottom = Color.parseColor("#E8F1F8")
-                groundC = Color.parseColor("#8AB68B")
-            } else {
-                skyTop = Color.parseColor("#F5B183")
-                skyBottom = Color.parseColor("#FDE6CD")
-                groundC = Color.parseColor("#A3A87C")
-            }
-
-            p.shader = LinearGradient(
-                0f, 0f, 0f, height.toFloat(),
-                skyTop, skyBottom, Shader.TileMode.CLAMP
-            )
-            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), p)
-            p.shader = null
-
-            // 遠景（パララックス）
-            p.color = Color.parseColor("#CFE3D6")
-            val far = camX * 0.25f
-            var hx = -(far % dp(220f))
-            while (hx < width + dp(220f)) {
-                canvas.drawCircle(hx + dp(110f), height * 0.42f, dp(120f), p)
-                hx += dp(220f)
-            }
-
-            // 校舎（中景）
-            p.color = Color.parseColor("#EDE7DC")
-            val mid = camX * 0.5f
-            var bx = -(mid % dp(320f))
-            while (bx < width + dp(320f)) {
-                val top = height * 0.14f
-                canvas.drawRect(bx + dp(40f), top, bx + dp(200f), height * 0.44f, p)
-                p.color = Color.parseColor("#C9BCA8")
-                var wy = top + dp(14f)
-                while (wy < height * 0.40f) {
-                    var wx = bx + dp(52f)
-                    while (wx < bx + dp(190f)) {
-                        canvas.drawRect(wx, wy, wx + dp(16f), wy + dp(14f), p)
-                        wx += dp(28f)
-                    }
-                    wy += dp(26f)
+            val b = bmp(rid)
+            val scale = height.toFloat() / b.height
+            val tileW = b.width * scale
+            if (tileW <= 0f) return
+            val offset = -camX * 0.25f
+            var i = floor((0f - offset - tileW) / tileW).toInt()
+            val iMax = floor((width - offset) / tileW).toInt() + 1
+            while (i <= iMax) {
+                val left = offset + i * tileW
+                val dst = RectF(left, 0f, left + tileW, height.toFloat())
+                if (Math.floorMod(i, 2) == 0) {
+                    canvas.drawBitmap(b, null, dst, null)
+                } else {
+                    canvas.save()
+                    canvas.scale(-1f, 1f, dst.centerX(), dst.centerY())
+                    canvas.drawBitmap(b, null, dst, null)
+                    canvas.restore()
                 }
-                p.color = Color.parseColor("#EDE7DC")
-                bx += dp(320f)
+                i++
             }
+        }
 
-            // 地面
-            p.color = groundC
-            canvas.drawRect(0f, height * 0.44f, width.toFloat(), height.toFloat(), p)
-
+        private fun drawTrack(canvas: Canvas) {
+            val dx = width / 2f - camX
             canvas.save()
-            canvas.translate(-camX, 0f)
+            canvas.translate(dx, 0f)
 
-            // 道（奥行きのある帯）
-            p.style = Paint.Style.FILL
-            val road = Path()
+            var first = ((camX - width) / spacing).toInt() - 1
+            var last = ((camX + width) / spacing).toInt() + 1
+            if (first < 0) first = 0
+            if (last > cells.size - 1) last = cells.size - 1
+
+            canvas.drawLine(worldX(first), laneY, worldX(last), laneY, pathPaint)
+
+            var i = first
+            while (i <= last) {
+                val x = worldX(i)
+                val c = cells[i]
+                fillPaint.color = cellColor(c.type)
+                canvas.drawCircle(x, laneY, cellR, fillPaint)
+                canvas.drawCircle(x, laneY, cellR, edgePaint)
+                val sym = symbolOf(c.type)
+                val lbl = if (sym == "") (i + 1).toString() else sym
+                canvas.drawText(lbl, x, laneY + textPaint.textSize / 3, textPaint)
+                i++
+            }
+
+            // コマ（手番のキャラは大きく・はねる。A面と同じ）
+            val byCell = HashMap<Int, ArrayList<Int>>()
+            var pi = 0
+            while (pi < players.size) {
+                var pos = players[pi].pos
+                if (pos < 0) pos = 0
+                if (pos > cells.size - 1) pos = cells.size - 1
+                var l = byCell[pos]
+                if (l == null) {
+                    l = ArrayList()
+                    byCell[pos] = l
+                }
+                l.add(pi)
+                pi++
+            }
+            for ((cell, group) in byCell) {
+                if (cell < first - 1 || cell > last + 1) continue
+                val cx = worldX(cell)
+                group.sortBy { if (it == turnIndex) 1 else 0 }
+                var slot = 0
+                while (slot < group.size) {
+                    val idx = group[slot]
+                    val pl = players[idx]
+                    val isTurn = idx == turnIndex
+                    val rid = charaRes(pl.chara, stageKeyAt(pl.pos), "")
+                    if (rid != 0) {
+                        val b = bmp(rid)
+                        val sz = cellR * (if (isTurn) 2.5f else 1.8f)
+                        val pieceDx = (slot - (group.size - 1) / 2f) * cellR * 0.8f
+                        val lift = if (isTurn) (sin(bounce) * 0.5f + 0.5f) * cellR * 0.4f else 0f
+                        val shadowScale = 1f - (lift / (cellR * 0.4f)) * 0.35f
+                        val shadowW = sz * 0.40f * shadowScale
+                        val shadowH = sz * 0.12f * shadowScale
+                        val baseY = laneY - cellR * 0.55f
+                        canvas.drawOval(RectF(
+                            cx + pieceDx - shadowW, baseY - shadowH,
+                            cx + pieceDx + shadowW, baseY + shadowH), shadowPaint)
+                        val pt = pl.partner
+                        if (pt != null) {
+                            val prid = charaRes(pt, stageKeyAt(pl.pos), "")
+                            if (prid != 0) {
+                                val pb = bmp(prid)
+                                val ps = sz * 0.78f
+                                val px = cx + pieceDx + sz * 0.42f
+                                canvas.drawOval(RectF(
+                                    px - ps * 0.36f, baseY - shadowH * 0.85f,
+                                    px + ps * 0.36f, baseY + shadowH * 0.85f), shadowPaint)
+                                canvas.drawBitmap(pb, null, RectF(
+                                    px - ps / 2, baseY - ps, px + ps / 2, baseY), null)
+                            }
+                        }
+                        canvas.drawBitmap(b, null, RectF(
+                            cx + pieceDx - sz / 2, baseY - sz - lift,
+                            cx + pieceDx + sz / 2, baseY - lift), null)
+                    }
+                    slot++
+                }
+            }
+            canvas.restore()
+        }
+
+        // 上部: いまのステージ全体が見えるミニマップ（A面スタイル）
+        private fun drawMiniMap(canvas: Canvas, si: Int) {
+            if (stages.isEmpty()) return
+            val stg = stages[si]
+            val frameL = width * 0.03f
+            val frameR = width * 0.97f
+            val frameT = height * 0.04f
+            val frameB = height * 0.30f
+            val rect = RectF(frameL, frameT, frameR, frameB)
+            canvas.drawRoundRect(rect, dp(8f), dp(8f), mapBgPaint)
+            canvas.drawRoundRect(rect, dp(8f), dp(8f), mapEdgePaint)
+
+            val padX = width * 0.045f
+            val l = frameL + padX
+            val r = frameR - padX
+            val lineY = frameT + (frameB - frameT) * 0.68f
+            canvas.drawLine(l, lineY, r, lineY, mapLinePaint)
+
+            val n = stg.to - stg.from + 1
+            val miniR = (frameB - frameT) * 0.085f
             var i = 0
-            while (i < cells.size) {
-                val x = cellX(i)
-                val y = cellY(i) - tileRy(i) * 2.4f
-                if (i == 0) road.moveTo(x - dp(60f), y) else road.lineTo(x, y)
+            while (i < n) {
+                val x = l + (r - l) * i / (n - 1).toFloat()
+                mapCellPaint.color = cellColor(cells[stg.from + i].type)
+                canvas.drawCircle(x, lineY, miniR, mapCellPaint)
                 i++
             }
-            i = cells.size - 1
-            while (i >= 0) {
-                road.lineTo(cellX(i), cellY(i) + tileRy(i) * 2.4f)
-                i--
-            }
-            road.close()
-            p.color = Color.parseColor("#EFE2CB")
-            canvas.drawPath(road, p)
 
-            // 奥のマスから手前のマスへ順に描く（重なりが自然になる）
-            val order = ArrayList<Int>()
-            i = 0
-            while (i < cells.size) {
-                order.add(i)
-                i++
-            }
-            order.sortBy { depth(it) }
-
-            var oi = 0
-            while (oi < order.size) {
-                val ci = order[oi]
-                val cx = cellX(ci)
-                val cy = cellY(ci)
-                if (cx > camX - dp(200f) && cx < camX + width + dp(200f)) {
-                    val c = cells[ci]
-                    val rx = tileRx(ci)
-                    val ry = tileRy(ci)
-                    val d = depth(ci)
-                    p.color = Color.parseColor("#26000000")
-                    canvas.drawOval(RectF(cx - rx, cy - ry + dp(3f), cx + rx, cy + ry + dp(3f)), p)
-                    p.color = Color.parseColor("#7A6A56")
-                    canvas.drawOval(RectF(cx - rx, cy - ry, cx + rx, cy + ry), p)
-                    p.color = cellColor(c.type)
-                    canvas.drawOval(RectF(cx - rx * 0.88f, cy - ry * 0.82f, cx + rx * 0.88f, cy + ry * 0.82f), p)
-
-                    p.textAlign = Paint.Align.CENTER
-                    p.color = Color.parseColor("#4A3F35")
-                    p.textSize = dp(12f) * d
-                    canvas.drawText((ci + 1).toString(), cx, cy + dp(4f) * d, p)
-                    p.textSize = dp(11f) * d
-                    p.color = Color.parseColor("#3E3A34")
-                    val ttl = if (c.title.length > 7) c.title.substring(0, 7) else c.title
-                    canvas.drawText(ttl, cx, cy + ry + dp(16f) * d, p)
-                    p.textAlign = Paint.Align.LEFT
-
-                    var pi = 0
-                    while (pi < players.size) {
-                        if (players[pi].pos == ci) drawPiece(canvas, players[pi], pi)
-                        pi++
+            var pi = 0
+            while (pi < players.size) {
+                val pl = players[pi]
+                if (stageIndexAt(pl.pos) == si) {
+                    var rel = pl.pos - stg.from
+                    if (rel < 0) rel = 0
+                    if (rel > n - 1) rel = n - 1
+                    val x = l + (r - l) * rel / (n - 1).toFloat()
+                    val rid = charaRes(pl.chara, stageKeyAt(pl.pos), "")
+                    if (rid != 0) {
+                        val isTurn = pi == turnIndex
+                        val sz = (frameB - frameT) * (if (isTurn) 0.46f else 0.34f)
+                        canvas.drawBitmap(bmp(rid), null, RectF(
+                            x - sz / 2, lineY - miniR * 1.6f - sz,
+                            x + sz / 2, lineY - miniR * 1.6f), null)
                     }
                 }
-                oi++
-            }
-
-            canvas.restore()
-
-            // ミニマップ
-            val mmY = height - dp(16f)
-            p.color = Color.parseColor("#66FFFFFF")
-            canvas.drawRoundRect(
-                RectF(dp(12f), mmY - dp(10f), width - dp(12f), mmY + dp(4f)),
-                dp(7f), dp(7f), p
-            )
-            val mmW = width - dp(24f) - dp(8f)
-            i = 0
-            while (i < players.size) {
-                val pl = players[i]
-                val ratio = pl.pos.toFloat() / (cells.size - 1).toFloat()
-                p.color = playerColor(i)
-                canvas.drawCircle(dp(16f) + mmW * ratio, mmY - dp(3f), dp(5f), p)
-                i++
-            }
-
-            // ステージ名
-            p.color = Color.parseColor("#88000000")
-            canvas.drawRoundRect(RectF(dp(10f), dp(10f), dp(130f), dp(38f)), dp(8f), dp(8f), p)
-            p.color = Color.WHITE
-            p.textSize = dp(14f)
-            canvas.drawText(stages[si].name, dp(20f), dp(29f), p)
-
-            // カメラ追従
-            val diff = targetX - camX
-            if (abs(diff) > 0.5f) {
-                camX += diff * 0.18f
-                postInvalidateOnAnimation()
+                pi++
             }
         }
     }
@@ -1533,7 +1650,7 @@ class MainActivity : Activity() {
         return Color.parseColor("#B5838D")
     }
 
-    // ---------------- ルーレット ----------------
+    // ---------------- ルーレット（A面スタイル：パステル6色・TAP・結果ポップ） ----------------
 
     inner class RouletteView(ctx: Context) : View(ctx) {
 
@@ -1541,14 +1658,27 @@ class MainActivity : Activity() {
         private var rot = 0f
         private var spinning = false
         private var locked = true
-        private var lastResult = 0
+        private var resultNum = 0
+        private var resultScale = 1f
         var onResult: (Int) -> Unit = {}
 
         private val colors = intArrayOf(
-            Color.parseColor("#E9C46A"), Color.parseColor("#F4A261"),
-            Color.parseColor("#E76F51"), Color.parseColor("#2A9D8F"),
-            Color.parseColor("#8AB17D"), Color.parseColor("#6D9DC5")
+            Color.parseColor("#EF9A9A"), Color.parseColor("#FFCC80"),
+            Color.parseColor("#FFF59D"), Color.parseColor("#A5D6A7"),
+            Color.parseColor("#90CAF9"), Color.parseColor("#CE93D8")
         )
+
+        // 「ふつう」用の回転カーブ（A面と同じ）。前半72%で回転量の88.5%を消化して一気に減速
+        private val snapSpin = TimeInterpolator { t ->
+            val k = 0.72f
+            val a = 0.885f
+            if (t < k) t / k * a
+            else {
+                val u = (t - k) / (1f - k)
+                val inv = 1f - u
+                a + (1f - a) * (1f - inv * inv * inv)
+            }
+        }
 
         fun lock() {
             locked = true
@@ -1581,26 +1711,39 @@ class MainActivity : Activity() {
             if (spinning) return
             spinning = true
             locked = true
+            resultNum = 0
             val n = Random.nextInt(1, 7)
-            val idx = n - 1
-            val base = ((rot % 360f) + 360f) % 360f
-            val want = (((270f - (idx * 60f + 30f)) % 360f) + 360f) % 360f
-            var delta = want - base
-            if (delta < 0f) delta += 360f
-            val end = rot + 1440f + delta
-            val an = ValueAnimator.ofFloat(rot, end)
+            val from = rot
+            val turns = if (Speed.fast) 3 else 5 + Random.nextInt(3)
+            val to = from - (from % 360f) + 360f * turns + (330f - (n - 1) * 60f)
+            val an = ValueAnimator.ofFloat(0f, 1f)
             an.duration = Speed.spinMs
-            an.interpolator = DecelerateInterpolator(1.8f)
+            // ふつう=直前まで速く回して急停止 / はやい=短いので従来どおりなめらかに減速
+            an.interpolator = if (Speed.fast) DecelerateInterpolator(2.2f) else snapSpin
             an.addUpdateListener { a ->
-                rot = a.animatedValue as Float
+                rot = from + (to - from) * (a.animatedValue as Float)
                 invalidate()
             }
             an.addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(a: Animator) {
                     spinning = false
-                    lastResult = n
-                    invalidate()
-                    onResult(n)
+                    showResultPop(n)
+                }
+            })
+            an.start()
+        }
+
+        private fun showResultPop(n: Int) {
+            resultNum = n
+            val an = ValueAnimator.ofFloat(0.3f, 1.15f, 1f)
+            an.duration = 350
+            an.addUpdateListener { a ->
+                resultScale = a.animatedValue as Float
+                invalidate()
+            }
+            an.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(a: Animator) {
+                    postDelayed({ onResult(n) }, Speed.resultMs)
                 }
             })
             an.start()
@@ -1609,49 +1752,69 @@ class MainActivity : Activity() {
         override fun onDraw(canvas: Canvas) {
             val cx = width / 2f
             val cy = height / 2f
-            val r = (if (width < height) width else height) / 2f - dp(10f)
-
-            p.color = Color.parseColor("#33000000")
-            canvas.drawCircle(cx, cy + dp(3f), r + dp(4f), p)
+            val r = min(width, height) / 2f * 0.82f
+            val rect = RectF(cx - r, cy - r, cx + r, cy + r)
 
             canvas.save()
             canvas.rotate(rot, cx, cy)
-            val rect = RectF(cx - r, cy - r, cx + r, cy + r)
+            p.style = Paint.Style.FILL
+            p.textAlign = Paint.Align.CENTER
+            p.setTypeface(Typeface.DEFAULT_BOLD)
             var i = 0
             while (i < 6) {
                 p.color = colors[i]
-                canvas.drawArc(rect, i * 60f, 60f, true, p)
+                canvas.drawArc(rect, -90f + i * 60f, 60f, true, p)
                 i++
             }
+            p.style = Paint.Style.STROKE
+            p.strokeWidth = dp(2f)
             p.color = Color.WHITE
-            p.textSize = r * 0.34f
-            p.textAlign = Paint.Align.CENTER
-            p.setTypeface(Typeface.DEFAULT_BOLD)
             i = 0
             while (i < 6) {
-                val ang = Math.toRadians((i * 60f + 30f).toDouble())
-                val tx = cx + (cos(ang) * r * 0.66f).toFloat()
-                val ty = cy + (sin(ang) * r * 0.66f).toFloat() + p.textSize * 0.35f
+                canvas.drawArc(rect, -90f + i * 60f, 60f, true, p)
+                i++
+            }
+            p.style = Paint.Style.FILL
+            p.color = Color.parseColor("#37474F")
+            p.textSize = r * 0.28f
+            i = 0
+            while (i < 6) {
+                val ang = Math.toRadians((-90 + i * 60 + 30).toDouble())
+                val tx = cx + (r * 0.62f) * cos(ang).toFloat()
+                val ty = cy + (r * 0.62f) * sin(ang).toFloat() + p.textSize / 3
                 canvas.drawText((i + 1).toString(), tx, ty, p)
                 i++
             }
             canvas.restore()
 
-            p.color = Color.WHITE
-            canvas.drawCircle(cx, cy, r * 0.3f, p)
-            p.color = Color.parseColor("#3A5A40")
-            p.textSize = dp(13f)
-            val ctr = if (spinning) "..." else if (locked) "..." else "スタート"
-            canvas.drawText(ctr, cx, cy + dp(5f), p)
+            // 上部のポインタ（下向きの赤い三角）
+            val pin = Path()
+            pin.moveTo(cx, cy - r - dp(2f))
+            pin.lineTo(cx - r * 0.1f, cy - r + r * 0.22f)
+            pin.lineTo(cx + r * 0.1f, cy - r + r * 0.22f)
+            pin.close()
+            p.color = Color.parseColor("#D32F2F")
+            canvas.drawPath(pin, p)
 
-            // 上部のポインタ
-            val path = Path()
-            path.moveTo(cx - dp(11f), cy - r - dp(2f))
-            path.lineTo(cx + dp(11f), cy - r - dp(2f))
-            path.lineTo(cx, cy - r + dp(16f))
-            path.close()
-            p.color = Color.parseColor("#D62828")
-            canvas.drawPath(path, p)
+            if (resultNum != 0) {
+                val br = r * 0.46f * resultScale
+                p.color = Color.WHITE
+                canvas.drawCircle(cx, cy, br, p)
+                p.style = Paint.Style.STROKE
+                p.strokeWidth = dp(3f)
+                p.color = Color.parseColor("#D32F2F")
+                canvas.drawCircle(cx, cy, br, p)
+                p.style = Paint.Style.FILL
+                p.textSize = br * 1.2f
+                canvas.drawText(resultNum.toString(), cx, cy + p.textSize * 0.36f, p)
+            } else {
+                p.color = Color.WHITE
+                canvas.drawCircle(cx, cy, r * 0.22f, p)
+                p.color = Color.parseColor("#37474F")
+                p.textSize = r * 0.16f
+                val ctr = if (spinning || locked) "..." else "TAP"
+                canvas.drawText(ctr, cx, cy + p.textSize / 3, p)
+            }
             p.textAlign = Paint.Align.LEFT
         }
     }
