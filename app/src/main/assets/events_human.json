@@ -65,6 +65,7 @@
      "text": "てんすうが わるくて おやに みせられない…",
      "st": -3,
      "pp": -1,
+     "bg": "bg_classroom_elem",
      "tag": "free"
     },
     {
@@ -81,6 +82,7 @@
      "title": "がっしょうコンクール",
      "text": "パートに わかれて こえを あわせた。",
      "pp": 2,
+     "bg": "bg_music_room",
      "tag": "free"
     },
     {
@@ -89,6 +91,7 @@
      "text": "ともだちと べんきょうかい。おしえあった。",
      "st": 4,
      "pp": 2,
+     "bg": "bg_study_corner",
      "tag": "study"
     },
     {
@@ -104,7 +107,7 @@
      "title": "なかなおり",
      "text": "あやまって なかなおり。まえより なかよく。",
      "pp": 5,
-     "bg": "bg_train",
+     "bg": "bg_school_corridor",
      "tag": "free"
     },
     {
@@ -122,6 +125,7 @@
      "text": "クラスの てんじが ひょうばんに なった。",
      "st": 2,
      "pp": 4,
+     "bg": "bg_gym",
      "tag": "study"
     },
     {
@@ -138,6 +142,7 @@
      "title": "じゅけんべんきょう",
      "text": "まいばん つくえに むかった。",
      "st": 6,
+     "bg": "bg_study_corner",
      "tag": "study"
     },
     {
@@ -154,6 +159,7 @@
      "text": "つぎの じゅぎょうの ページを ひらいておいた。",
      "st": 4,
      "pp": 1,
+     "bg": "bg_study_corner",
      "tag": "study"
     },
     {
@@ -186,6 +192,7 @@
      "title": "すぶり 100かい",
      "text": "まいばん にわで バットを ふった。",
      "sp": 5,
+     "bg": "bg_field_sunset",
      "tag": "sport"
     },
     {
@@ -246,6 +253,7 @@
      "title": "もぎしけん",
      "text": "はんいが ひろい。それでも てを うごかした。",
      "st": 4,
+     "bg": "bg_cram_school",
      "tag": "study"
     },
     {
@@ -288,6 +296,7 @@
      "text": "ずっと どうがを みて あさが つらい。",
      "st": -2,
      "sp": -1,
+     "bg": "bg_classroom_sunset",
      "tag": "free"
     },
     {
@@ -312,6 +321,7 @@
      "title": "きねんしゃしん",
      "text": "こうしゃの まえで みんなで ならんだ。",
      "pp": 3,
+     "bg": "bg_highschool_day",
      "tag": "free"
     },
     {
@@ -352,6 +362,7 @@
      "title": "きんトレ",
      "text": "まいにち すこしずつ かいすうを ふやした。",
      "sp": 5,
+     "bg": "bg_gym",
      "tag": "sport"
     },
     {
@@ -413,6 +424,7 @@
      "text": "にゅうがくしきの あと、じかんわりを じぶんで くんだ。",
      "st": 3,
      "pp": 2,
+     "bg": "bg_ceremony_hall",
      "tag": "study"
     },
     {
@@ -429,7 +441,7 @@
      "title": "たんい おとした",
      "text": "あさの こうぎに おきられなかった。",
      "st": -3,
-     "bg": "bg_beach",
+     "bg": "bg_corridor",
      "tag": "free"
     },
     {
@@ -438,6 +450,7 @@
      "text": "もぎてんの よびこみを した。",
      "pp": 3,
      "mn": 500,
+     "bg": "bg_mall_bright",
      "tag": "free"
     },
     {
@@ -482,6 +495,7 @@
      "title": "めんせつれんしゅう",
      "text": "こうはいと なんども れんしゅうした。",
      "pp": 5,
+     "bg": "bg_desk_work",
      "tag": "free"
     },
     {
@@ -490,6 +504,7 @@
      "text": "はかまと スーツで しゃしんを とった。",
      "st": 2,
      "pp": 4,
+     "bg": "bg_graduation",
      "tag": "study"
     },
     {
@@ -522,6 +537,7 @@
      "text": "かいひを はらった ぶん つづけられた。",
      "sp": 5,
      "mn": -800,
+     "bg": "bg_gym",
      "tag": "sport"
     },
     {
@@ -624,7 +640,8 @@
    "type": "GOOD",
    "title": "ねがえり",
    "text": "ころんと よこを むいた。はじめての ぼうけん。",
-   "sp": 2
+   "sp": 2,
+   "bg": "bg_baby_room"
   },
   {
    "i": 4,
@@ -668,7 +685,8 @@
    "type": "GOOD",
    "title": "えほん",
    "text": "おなじ えほんを なんども よんでもらった。",
-   "st": 3
+   "st": 3,
+   "bg": "bg_baby_room"
   },
   {
    "i": 10,
@@ -695,7 +713,8 @@
      "text": "ころころ おいかけて はいはいが はやくなった。",
      "sp": 3
     }
-   ]
+   ],
+   "bg": "bg_baby_room"
   },
   {
    "i": 12,
@@ -739,7 +758,8 @@
    "title": "はじめての ことば",
    "text": "「まんま」と いえた。かぞくが おおよろこび。",
    "st": 2,
-   "pp": 2
+   "pp": 2,
+   "bg": "bg_cabin_living"
   },
   {
    "i": 16,
@@ -764,7 +784,8 @@
      "text": "ゆかの もようが きに なって うごかなくなった。",
      "pp": 1
     }
-   ]
+   ],
+   "bg": "bg_nursery_room"
   },
   {
    "i": 18,
@@ -772,14 +793,16 @@
    "title": "1さいの たんじょうび",
    "text": "ケーキの まえで しゃしんを とった。",
    "pp": 3,
-   "mn": 300
+   "mn": 300,
+   "bg": "bg_cabin_living"
   },
   {
    "i": 19,
    "type": "STAGEGOAL",
    "title": "たっち！",
    "text": "よちよち あるけた。ほいくえんへ いく じゅんびが できた。",
-   "pp": 2
+   "pp": 2,
+   "bg": "bg_baby_room"
   },
   {
    "i": 20,
@@ -821,15 +844,19 @@
      "st": 4,
      "pp": 1
     }
-   ]
+   ],
+   "bg": "bg_playground"
   },
   {
    "i": 24,
    "type": "GOOD",
    "title": "はじめての おともだち",
    "text": "となりの子と てを つないで あるいた。",
+   "cast": [
+    "friend"
+   ],
    "pp": 3,
-   "bg": "bg_playground"
+   "bg": "bg_nursery_room"
   },
   {
    "i": 25,
@@ -877,7 +904,8 @@
    "type": "GOOD",
    "title": "なわとび",
    "text": "10かい とべるように なった。",
-   "sp": 3
+   "sp": 3,
+   "bg": "bg_playground"
   },
   {
    "i": 31,
@@ -885,7 +913,8 @@
    "title": "ころんだ",
    "text": "すべりだいで ころんで ひざを すりむいた。",
    "sp": -1,
-   "pp": -1
+   "pp": -1,
+   "bg": "bg_playground"
   },
   {
    "i": 32,
@@ -893,7 +922,7 @@
    "title": "おかしを もらった",
    "text": "せんせいに おかしを もらって げんき まんたん。",
    "mn": 200,
-   "bg": "bg_sakura_school_road"
+   "bg": "bg_nursery_room"
   },
   {
    "i": 33,
@@ -921,7 +950,8 @@
      "pp": 3,
      "mn": -400
     }
-   ]
+   ],
+   "bg": "bg_sakura_school_road"
   },
   {
    "i": 35,
@@ -949,7 +979,8 @@
      "st": 3,
      "pp": 1
     }
-   ]
+   ],
+   "bg": "bg_gym"
   },
   {
    "i": 37,
@@ -1013,7 +1044,8 @@
      "text": "さいごまで みつからなくて ないた。",
      "pp": -1
     }
-   ]
+   ],
+   "bg": "bg_schoolyard"
   },
   {
    "i": 43,
@@ -1044,7 +1076,11 @@
    "type": "GOOD",
    "title": "はじめての ともだち",
    "text": "となりの せきの子と なかよくなった。",
-   "pp": 2
+   "cast": [
+    "friend"
+   ],
+   "pp": 2,
+   "bg": "bg_classroom_elem"
   },
   {
    "i": 47,
@@ -1059,14 +1095,16 @@
    "type": "AGAIN",
    "title": "きゅうしょく",
    "text": "おかわりを もらって げんき まんたん。",
-   "sp": 1
+   "sp": 1,
+   "bg": "bg_classroom_elem"
   },
   {
    "i": 49,
    "type": "GOOD",
    "title": "けいさんドリル",
    "text": "ドリルを さいごまで やりきった。",
-   "st": 3
+   "st": 3,
+   "bg": "bg_study_corner"
   },
   {
    "i": 50,
@@ -1099,7 +1137,11 @@
      "text": "ずかんを よみふけった。",
      "st": 4
     }
-   ]
+   ],
+   "cast": [
+    "friend"
+   ],
+   "bg": "bg_school_library"
   },
   {
    "i": 53,
@@ -1107,7 +1149,7 @@
    "title": "おこづかい",
    "text": "おてつだいで おこづかいを もらった。",
    "mn": 500,
-   "bg": "bg_school_library"
+   "bg": "bg_veggie_stand"
   },
   {
    "i": 54,
@@ -1187,7 +1229,8 @@
      "text": "じっけんが おもしろくて はまった。",
      "st": 5
     }
-   ]
+   ],
+   "bg": "bg_science_room"
   },
   {
    "i": 63,
@@ -1200,9 +1243,12 @@
    "type": "GOOD",
    "title": "たんじょうびかい",
    "text": "みんなが きてくれた。",
+   "cast": [
+    "friend"
+   ],
    "pp": 4,
    "mn": 800,
-   "bg": "bg_science_room"
+   "bg": "bg_corridor"
   },
   {
    "i": 65,
@@ -1274,7 +1320,8 @@
    "type": "NORMAL",
    "title": "てんこうせい",
    "text": "となりの まちから きた子と はなした。",
-   "pp": 2
+   "pp": 2,
+   "bg": "bg_classroom_elem"
   },
   {
    "i": 73,
@@ -1289,7 +1336,8 @@
    "type": "GOOD",
    "title": "なかなおり",
    "text": "あやまって なかなおり。まえより なかよく。",
-   "pp": 5
+   "pp": 5,
+   "bg": "bg_library"
   },
   {
    "i": 75,
@@ -1316,13 +1364,17 @@
      "pp": 3,
      "mn": -800
     }
-   ]
+   ],
+   "bg": "bg_ryokan"
   },
   {
    "i": 77,
    "type": "NORMAL",
    "title": "よるの ロッジ",
-   "text": "みんなで まくらを ならべて ねた。"
+   "text": "みんなで まくらを ならべて ねた。",
+   "cast": [
+    "friend"
+   ]
   },
   {
    "i": 78,
@@ -1330,7 +1382,7 @@
    "title": "じゆうけんきゅう",
    "text": "なつやすみ ずっと かんさつ にっきを つけた。",
    "st": 5,
-   "bg": "bg_ryokan"
+   "bg": "bg_lodge_night"
   },
   {
    "i": 79,
@@ -1338,7 +1390,8 @@
    "title": "いいんかい",
    "text": "としょいいんに なって 本の せいりを した。",
    "st": 2,
-   "pp": 3
+   "pp": 3,
+   "bg": "bg_school_library"
   },
   {
    "i": 80,
@@ -1368,7 +1421,11 @@
    "type": "GOOD",
    "title": "さいごの きゅうしょく",
    "text": "すきな メニューが でた。みんなで わらった。",
-   "pp": 3
+   "cast": [
+    "friend"
+   ],
+   "pp": 3,
+   "bg": "bg_ceremony_hall"
   },
   {
    "i": 84,
@@ -1412,7 +1469,8 @@
    "tag": "free",
    "swap": true,
    "st": -3,
-   "pp": -1
+   "pp": -1,
+   "bg": "bg_classroom_elem"
   },
   {
    "i": 90,
@@ -1430,15 +1488,23 @@
    "type": "DATE",
    "title": "ろうかの すれちがい",
    "text": "きに なる人と すれちがった。こえを かける？",
-   "tag": "love"
+   "tag": "love",
+   "cast": [
+    "love"
+   ],
+   "bg": "bg_school_corridor"
   },
   {
    "i": 92,
    "type": "GOOD",
    "title": "たいいくさい",
    "text": "クラスの おうえんだんちょうに なった。",
+   "cast": [
+    "friend"
+   ],
    "sp": 3,
-   "pp": 4
+   "pp": 4,
+   "bg": "bg_sports_festival"
   },
   {
    "i": 93,
@@ -1446,7 +1512,8 @@
    "title": "けが",
    "text": "れんしゅうで あしを ひねった。1かい やすみ。",
    "sp": -2,
-   "rest": 1
+   "rest": 1,
+   "bg": "bg_nurse_room"
   },
   {
    "i": 94,
@@ -1455,7 +1522,8 @@
    "text": "パートに わかれて こえを あわせた。",
    "tag": "free",
    "swap": true,
-   "pp": 2
+   "pp": 2,
+   "bg": "bg_music_room"
   },
   {
    "i": 95,
@@ -1470,8 +1538,12 @@
    "text": "ともだちと べんきょうかい。おしえあった。",
    "tag": "study",
    "swap": true,
+   "cast": [
+    "friend"
+   ],
    "st": 4,
-   "pp": 2
+   "pp": 2,
+   "bg": "bg_study_corner"
   },
   {
    "i": 97,
@@ -1479,7 +1551,8 @@
    "title": "スマホに ゆうわく",
    "text": "きがついたら まよなか。2マス もどる。",
    "st": -1,
-   "move": -2
+   "move": -2,
+   "bg": "bg_school_library"
   },
   {
    "i": 98,
@@ -1497,6 +1570,9 @@
    "title": "おくじょうの かぜ",
    "text": "ひるやすみの おくじょう。ふたりきりに なった。",
    "tag": "love",
+   "cast": [
+    "love"
+   ],
    "bg": "bg_rooftop"
   },
   {
@@ -1540,6 +1616,9 @@
    "text": "ともだちと いいあいに なった。",
    "tag": "free",
    "swap": true,
+   "cast": [
+    "friend"
+   ],
    "pp": -3,
    "bg": "bg_country_station_rain"
   },
@@ -1551,7 +1630,7 @@
    "tag": "free",
    "swap": true,
    "pp": 5,
-   "bg": "bg_train"
+   "bg": "bg_school_corridor"
   },
   {
    "i": 105,
@@ -1570,7 +1649,11 @@
      "pp": 4,
      "mn": -300
     }
-   ]
+   ],
+   "cast": [
+    "friend"
+   ],
+   "bg": "bg_train"
   },
   {
    "i": 106,
@@ -1611,8 +1694,12 @@
    "text": "クラスの てんじが ひょうばんに なった。",
    "tag": "study",
    "swap": true,
+   "cast": [
+    "friend"
+   ],
    "st": 2,
-   "pp": 4
+   "pp": 4,
+   "bg": "bg_gym"
   },
   {
    "i": 111,
@@ -1628,7 +1715,7 @@
    "title": "きゅうけいの ジュース",
    "text": "じはんきの あたりが でた。もう いちど まわせる。",
    "mn": 200,
-   "bg": "bg_study_corner"
+   "bg": "bg_school_corridor"
   },
   {
    "i": 113,
@@ -1648,7 +1735,8 @@
      "st": 3,
      "sp": 1
     }
-   ]
+   ],
+   "bg": "bg_study_corner"
   },
   {
    "i": 114,
@@ -1727,14 +1815,16 @@
    "text": "まいばん つくえに むかった。",
    "tag": "study",
    "swap": true,
-   "st": 6
+   "st": 6,
+   "bg": "bg_study_corner"
   },
   {
    "i": 121,
    "type": "REST",
    "title": "ねつが でた",
    "text": "だいじな ときに ねこんだ。1かい やすみ。",
-   "rest": 1
+   "rest": 1,
+   "bg": "bg_hospital_room"
   },
   {
    "i": 122,
@@ -1742,7 +1832,8 @@
    "title": "すいせんの はなし",
    "text": "せんせいに よばれた。3マス すすむ。",
    "st": 2,
-   "move": 3
+   "move": 3,
+   "bg": "bg_field_sunset"
   },
   {
    "i": 123,
@@ -1770,6 +1861,9 @@
    "title": "あたらしい きょうしつ",
    "text": "せきが きまった。となりの クラスにも かおを だした。",
    "tag": "love",
+   "cast": [
+    "love"
+   ],
    "bg": "bg_classroom_high"
   },
   {
@@ -1789,7 +1883,8 @@
      "text": "としょしつの じょうれんに なった。",
      "st": 5
     }
-   ]
+   ],
+   "bg": "bg_family_restaurant"
   },
   {
    "i": 128,
@@ -1836,13 +1931,17 @@
    "text": "はんいが ひろい。それでも てを うごかした。",
    "tag": "study",
    "swap": true,
-   "st": 4
+   "st": 4,
+   "bg": "bg_cram_school"
   },
   {
    "i": 134,
    "type": "NORMAL",
    "title": "ふたりで かえる",
    "text": "きに なる人と とちゅうまで いっしょに かえった。",
+   "cast": [
+    "love"
+   ],
    "pp": 3,
    "bg": "bg_classroom_sunset"
   },
@@ -1852,7 +1951,8 @@
    "title": "てつやあけ",
    "text": "てつやして ちからつきた。1かい やすみ。",
    "st": 1,
-   "rest": 1
+   "rest": 1,
+   "bg": "bg_rooftop"
   },
   {
    "i": 136,
@@ -1860,6 +1960,9 @@
    "title": "さくらの かわぞい",
    "text": "ふたりで あるくには ちょうど いい みち。",
    "tag": "love",
+   "cast": [
+    "love"
+   ],
    "bg": "bg_sakura_river"
   },
   {
@@ -1929,7 +2032,8 @@
      "pp": 2,
      "mn": -1200
     }
-   ]
+   ],
+   "bg": "bg_cinema"
   },
   {
    "i": 144,
@@ -1938,7 +2042,7 @@
    "text": "すいせんの はなしが きた。3マス すすむ。",
    "st": 2,
    "move": 3,
-   "bg": "bg_cinema"
+   "bg": "bg_town_crossing"
   },
   {
    "i": 145,
@@ -1976,14 +2080,15 @@
      "sp": 2
     }
    ],
-   "bg": "bg_town_crossing"
+   "bg": "bg_highschool_rain"
   },
   {
    "i": 148,
    "type": "GOOD",
    "title": "しはんじゅんび",
    "text": "しかくの べんきょうを はじめた。",
-   "st": 5
+   "st": 5,
+   "bg": "bg_study_corner"
   },
   {
    "i": 149,
@@ -1998,6 +2103,9 @@
    "text": "やくそくして まちで まちあわせた。",
    "tag": "free",
    "swap": true,
+   "cast": [
+    "love"
+   ],
    "pp": 3,
    "mn": -800,
    "bg": "bg_mall_bright"
@@ -2010,7 +2118,8 @@
    "tag": "free",
    "swap": true,
    "st": -2,
-   "sp": -1
+   "sp": -1,
+   "bg": "bg_classroom_sunset"
   },
   {
    "i": 152,
@@ -2046,14 +2155,16 @@
      "st": 5,
      "mn": 1000
     }
-   ]
+   ],
+   "bg": "bg_gym"
   },
   {
    "i": 155,
    "type": "REST",
    "title": "ふゆの かぜ",
    "text": "インフルで がっこうを やすんだ。1かい やすみ。",
-   "rest": 1
+   "rest": 1,
+   "bg": "bg_hospital_room"
   },
   {
    "i": 156,
@@ -2080,7 +2191,8 @@
    "title": "じしゅうしつ",
    "text": "ふゆの じゅくで しゅうちゅうして といた。",
    "st": 6,
-   "mn": -1200
+   "mn": -1200,
+   "bg": "bg_cram_school"
   },
   {
    "i": 158,
@@ -2093,7 +2205,8 @@
    "type": "WARP",
    "title": "しんろしどう",
    "text": "しりょうを あつめなおし。2マス もどる。",
-   "move": -2
+   "move": -2,
+   "bg": "bg_staff_room"
   },
   {
    "i": 160,
@@ -2113,7 +2226,8 @@
      "mn": 7000,
      "sp": 2
     }
-   ]
+   ],
+   "bg": "bg_staff_room"
   },
   {
    "i": 161,
@@ -2128,6 +2242,9 @@
    "text": "ともだちと よあかしを した。わすれない なつ。",
    "tag": "sport",
    "swap": true,
+   "cast": [
+    "friend"
+   ],
    "sp": 2,
    "pp": 6,
    "bg": "bg_hanami"
@@ -2139,7 +2256,11 @@
    "text": "こうしゃの まえで みんなで ならんだ。",
    "tag": "free",
    "swap": true,
-   "pp": 3
+   "cast": [
+    "friend"
+   ],
+   "pp": 3,
+   "bg": "bg_highschool_day"
   },
   {
    "i": 164,
@@ -2171,7 +2292,8 @@
    "tag": "study",
    "swap": true,
    "st": 3,
-   "pp": 2
+   "pp": 2,
+   "bg": "bg_ceremony_hall"
   },
   {
    "i": 168,
@@ -2215,7 +2337,7 @@
    "tag": "free",
    "swap": true,
    "st": -3,
-   "bg": "bg_beach"
+   "bg": "bg_corridor"
   },
   {
    "i": 173,
@@ -2235,14 +2357,22 @@
      "st": 4,
      "mn": 1000
     }
-   ]
+   ],
+   "cast": [
+    "friend"
+   ],
+   "bg": "bg_beach"
   },
   {
    "i": 174,
    "type": "DATE",
    "title": "よるの キャンパス",
    "text": "かえりに どこかへ よっていく？",
-   "tag": "love"
+   "tag": "love",
+   "cast": [
+    "love"
+   ],
+   "bg": "bg_park_night"
   },
   {
    "i": 175,
@@ -2250,7 +2380,8 @@
    "title": "ゼミ はいぞく",
    "text": "きょうみの ある テーマに たどりついた。",
    "st": 5,
-   "pp": 1
+   "pp": 1,
+   "bg": "bg_desk_work"
   },
   {
    "i": 176,
@@ -2260,14 +2391,16 @@
    "tag": "free",
    "swap": true,
    "pp": 3,
-   "mn": 500
+   "mn": 500,
+   "bg": "bg_mall_bright"
   },
   {
    "i": 177,
    "type": "REST",
    "title": "むりが たたる",
    "text": "バイトの かけもちで ダウン。1かい やすみ。",
-   "rest": 1
+   "rest": 1,
+   "bg": "bg_hospital_room"
   },
   {
    "i": 178,
@@ -2282,7 +2415,8 @@
    "text": "めんきょを とって こうどうはんいが ひろがった。",
    "st": 2,
    "sp": 2,
-   "mn": -5000
+   "mn": -5000,
+   "bg": "bg_science_room"
   },
   {
    "i": 180,
@@ -2347,6 +2481,9 @@
    "title": "フェリーの たび",
    "text": "うみかぜに あたりながら しまへ わたった。",
    "tag": "love",
+   "cast": [
+    "love"
+   ],
    "mn": -2000,
    "bg": "bg_ferry"
   },
@@ -2355,6 +2492,9 @@
    "type": "GOOD",
    "title": "アルバイトの リーダー",
    "text": "こうはいを まとめる やくに なった。",
+   "cast": [
+    "friend"
+   ],
    "pp": 4,
    "mn": 7000,
    "bg": "bg_cafe"
@@ -2382,7 +2522,8 @@
    "title": "けんきゅうしつの よる",
    "text": "データが そろって よが あけた。",
    "st": 6,
-   "sp": -1
+   "sp": -1,
+   "bg": "bg_desk_work"
   },
   {
    "i": 190,
@@ -2439,7 +2580,8 @@
      "mn": 15000,
      "sp": -1
     }
-   ]
+   ],
+   "bg": "bg_ski_resort"
   },
   {
    "i": 194,
@@ -2452,6 +2594,9 @@
    "type": "CLUBEVENT",
    "title": "サークルの れんしゅう",
    "text": "こうはいに おしえながら じぶんも のびた。",
+   "cast": [
+    "friend"
+   ],
    "pp": 2
   },
   {
@@ -2459,9 +2604,12 @@
    "type": "BAD",
    "title": "しんろの まよい",
    "text": "みんなが さきに きまって あせる。",
+   "cast": [
+    "friend"
+   ],
    "st": -1,
    "pp": -2,
-   "bg": "bg_ski_resort"
+   "bg": "bg_mountain_trail"
   },
   {
    "i": 197,
@@ -2469,7 +2617,7 @@
    "title": "エントリー つうか",
    "text": "しょるいせんこうを つうか。もう いちど まわせる。",
    "pp": 1,
-   "bg": "bg_mountain_trail"
+   "bg": "bg_town_crossing"
   },
   {
    "i": 198,
@@ -2478,7 +2626,11 @@
    "text": "こうはいと なんども れんしゅうした。",
    "tag": "free",
    "swap": true,
-   "pp": 5
+   "cast": [
+    "friend"
+   ],
+   "pp": 5,
+   "bg": "bg_desk_work"
   },
   {
    "i": 199,
@@ -2511,7 +2663,8 @@
    "title": "そつぎょうろんぶん",
    "text": "さいごまで かきあげて ていしゅつした。",
    "st": 5,
-   "pp": 2
+   "pp": 2,
+   "bg": "bg_desk_work"
   },
   {
    "i": 202,
@@ -2527,7 +2680,8 @@
    "tag": "study",
    "swap": true,
    "st": 2,
-   "pp": 4
+   "pp": 4,
+   "bg": "bg_graduation"
   },
   {
    "i": 204,

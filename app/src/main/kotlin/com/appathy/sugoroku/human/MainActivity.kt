@@ -69,7 +69,7 @@ class MainActivity : Activity() {
         val d: Delta, val move: Int, val rest: Int,
         val choices: List<Choice>, val ch: Challenge?, val love: Boolean,
         val goalKey: String, val bg: String, val deai: Boolean,
-        val tag: String, val swap: Boolean
+        val tag: String, val swap: Boolean, val cast: List<String>
     )
 
     // タイプ（べんきょう / うんどう / こい / バランス）
@@ -304,8 +304,20 @@ class MainActivity : Activity() {
             o.optString("bg", ""),
             o.optBoolean("deai", false),
             o.optString("tag", ""),
-            o.optBoolean("swap", false)
+            o.optBoolean("swap", false),
+            readCast(o)
         )
+    }
+
+    private fun readCast(o: JSONObject): List<String> {
+        val l = ArrayList<String>()
+        val a = o.optJSONArray("cast") ?: return l
+        var i = 0
+        while (i < a.length()) {
+            l.add(a.getString(i))
+            i++
+        }
+        return l
     }
 
     private fun readCharaSet(root: JSONObject, setName: String): List<Chara> {
@@ -1004,15 +1016,53 @@ class MainActivity : Activity() {
         handler.postDelayed({ after() }, if (players[turn].cpu) Speed.cpuWaitMs else Speed.resultMs)
     }
 
-    private fun message(title: String, body: String, after: () -> Unit) {
-        val p = players[turn]
-        if (p.cpu) {
-            log("[" + title + "] " + body.replace("\n", " "))
-            statusText2?.text = p.chara.name + "：" + title
-            handler.postDelayed({ after() }, Speed.cpuWaitMs)
-            return
+    // イベントに でてくる 人を きめる。
+    // friend = プレイヤーが つかっていない キャラを ゆうせん（いなければ ほかの プレイヤー）
+    // love   = こいびと、いなければ いちばん こうかんどの たかい人
+    private fun castOf(p: Player, cell: Cell): List<Chara> {
+        val out = ArrayList<Chara>()
+        var i = 0
+        while (i < cell.cast.size) {
+            val role = cell.cast[i]
+            if (role == "love") {
+                val c = p.partner ?: p.crush
+                if (c != null && !out.contains(c)) out.add(c)
+            } else {
+                val c = friendChara(p, cell.i + i)
+                if (c != null && !out.contains(c)) out.add(c)
+            }
+            i++
         }
+        return out
+    }
 
+    private fun friendChara(p: Player, seed: Int): Chara? {
+        if (charas.isEmpty()) return null
+        val used = ArrayList<Chara>()
+        var i = 0
+        while (i < players.size) {
+            used.add(players[i].chara)
+            i++
+        }
+        val free = ArrayList<Chara>()
+        i = 0
+        while (i < charas.size) {
+            if (!used.contains(charas[i])) free.add(charas[i])
+            i++
+        }
+        if (free.isNotEmpty()) return free[Math.floorMod(seed, free.size)]
+        val others = ArrayList<Chara>()
+        i = 0
+        while (i < players.size) {
+            if (players[i] !== p) others.add(players[i].chara)
+            i++
+        }
+        if (others.isEmpty()) return null
+        return others[Math.floorMod(seed, others.size)]
+    }
+
+    // 背景と 登場人物を のせた ダイアログの なかみ
+    private fun eventView(p: Player, body: String, cast: List<Chara>): ScrollView {
         val content = LinearLayout(this)
         content.orientation = LinearLayout.VERTICAL
         content.setPadding(dpi(12f), dpi(12f), dpi(12f), dpi(12f))
@@ -1035,24 +1085,28 @@ class MainActivity : Activity() {
             val me = ImageView(this)
             me.setImageResource(charaRes(p.chara, key, ""))
             me.rotation = 3f
-            val mlp = LinearLayout.LayoutParams(dpi(108f), dpi(108f))
+            val mlp = LinearLayout.LayoutParams(dpi(104f), dpi(104f))
             mlp.bottomMargin = dpi(6f)
             mlp.leftMargin = dpi(2f)
             mlp.rightMargin = dpi(2f)
             row.addView(me, mlp)
 
-            val pt = p.partner
-            val cr = p.crush
-            val mate = pt ?: cr
-            if (mate != null) {
-                val mv = ImageView(this)
-                mv.setImageResource(charaRes(mate, key, ""))
-                mv.rotation = -4f
-                val plp = LinearLayout.LayoutParams(dpi(100f), dpi(100f))
-                plp.bottomMargin = dpi(6f)
-                plp.leftMargin = dpi(2f)
-                plp.rightMargin = dpi(2f)
-                row.addView(mv, plp)
+            // でてくる 人。ひとが おおいときは すこし ちいさく して はみ出さないように
+            val sz = if (cast.size >= 2) dpi(84f) else dpi(96f)
+            var i = 0
+            while (i < cast.size && i < 2) {
+                val res = charaRes(cast[i], key, "")
+                if (res != 0) {
+                    val cv = ImageView(this)
+                    cv.setImageResource(res)
+                    cv.rotation = if (i == 0) -4f else 5f
+                    val clp = LinearLayout.LayoutParams(sz, sz)
+                    clp.bottomMargin = dpi(6f)
+                    clp.leftMargin = dpi(2f)
+                    clp.rightMargin = dpi(2f)
+                    row.addView(cv, clp)
+                }
+                i++
             }
 
             frame.addView(row, FrameLayout.LayoutParams(
@@ -1074,9 +1128,25 @@ class MainActivity : Activity() {
 
         val sv = ScrollView(this)
         sv.addView(content)
+        return sv
+    }
+
+    private var castNow: List<Chara> = ArrayList()
+
+    private fun message(title: String, body: String, after: () -> Unit) {
+        val p = players[turn]
+        if (p.cpu) {
+            log("[" + title + "] " + body.replace("\n", " "))
+            statusText2?.text = p.chara.name + "：" + title
+            castNow = ArrayList()
+            handler.postDelayed({ after() }, Speed.cpuWaitMs)
+            return
+        }
+        val cast = castNow
+        castNow = ArrayList()
         AlertDialog.Builder(this)
             .setTitle(title)
-            .setView(sv)
+            .setView(eventView(p, body, cast))
             .setCancelable(false)
             .setPositiveButton("OK") { _, _ -> after() }
             .show()
@@ -1343,6 +1413,7 @@ class MainActivity : Activity() {
             val d = Delta(0, 0, 2, -300)
             applyDelta(p, d)
             p.fightStreak = 0
+            castNow = listOf(mate)
             message(cell.title, cell.text + "\n\n" + mate.name + " と ふたりで でかけた。\n" + deltaText(d)) { after() }
             return
         }
@@ -1370,16 +1441,18 @@ class MainActivity : Activity() {
             val c = pool[k]
             c.name + "　" + affBar(affOf(p, c))
         }
+        // でてくる 3人の かおを 背景の うえに ならべる
+        castNow = ArrayList()
         val b = AlertDialog.Builder(this)
         b.setTitle(cell.title + "：だれを さそう？")
-        b.setMessage(cell.text)
+        b.setView(eventView(p, cell.text, pool))
         b.setCancelable(false)
         b.setItems(names) { _, which ->
             val c = pool[which]
             addAff(p, c, 3)
             val d = AlertDialog.Builder(this)
             d.setTitle(c.name)
-            d.setMessage("いっしょに すごした。\nなかよし " + affBar(affOf(p, c)))
+            d.setView(eventView(p, "いっしょに すごした。\nなかよし " + affBar(affOf(p, c)), listOf(c)))
             d.setCancelable(false)
             d.setPositiveButton("OK") { _, _ -> after() }
             d.show()
@@ -1415,6 +1488,7 @@ class MainActivity : Activity() {
             // まだ きっかけが ない。だれかと すこし ちかづく
             val c = partners[Random.nextInt(partners.size)]
             addAff(p, c, 1)
+            castNow = listOf(c)
             message(cell.title, cell.text + "\n\n" + c.name + " と すこし はなした。\nなかよし " +
                     affBar(affOf(p, c))) { after() }
             return
@@ -1430,9 +1504,12 @@ class MainActivity : Activity() {
             }
             return
         }
+        val one = ArrayList<Chara>()
+        one.add(top)
+        castNow = ArrayList()
         val b = AlertDialog.Builder(this)
         b.setTitle(cell.title)
-        b.setMessage(cell.text + "\n\n" + top.name + "　" + affBar(v))
+        b.setView(eventView(p, cell.text + "\n\n" + top.name + "　" + affBar(v), one))
         b.setCancelable(false)
         b.setPositiveButton("こくはくする") { _, _ -> tryConfess(p, top, cell, after) }
         b.setNegativeButton("きょうは やめておく") { _, _ ->
@@ -1452,6 +1529,7 @@ class MainActivity : Activity() {
         addAff(p, c, -2)
         val d = Delta(1, 0, -1, 0)
         applyDelta(p, d)
+        castNow = listOf(c)
         message(cell.title, "「ともだちで いよう」と いわれた。\n" + deltaText(d)) { after() }
     }
 
@@ -1468,11 +1546,13 @@ class MainActivity : Activity() {
             body = body + "\n\n★ もくひょう たっせい： " + goalLabel("love")
         }
         updateStats()
+        castNow = listOf(c)
         message(cell.title, body) { after() }
     }
 
     // こいびとが いる ときの こいのマス
     private fun coupleEvent(p: Player, cell: Cell, mate: Chara, after: () -> Unit) {
+        castNow = listOf(mate)
         if (Random.nextInt(100) < 30) {
             p.fightStreak++
             val d = Delta(0, 0, -2, 0)
@@ -1486,6 +1566,7 @@ class MainActivity : Activity() {
                 p.aff[mate.name] = 2
                 p.crush = topCandidate(p)
                 updateStats()
+                castNow = listOf(mate)
                 message(cell.title, "また けんかを して しまった。3かい つづけて…\n\n" +
                         mate.name + " と わかれる ことに なった。\n" + deltaText(bd)) { after() }
                 return
@@ -1514,6 +1595,9 @@ class MainActivity : Activity() {
 
     private fun doClubEvent(p: Player, cell: Cell, after: () -> Unit) {
         val c = p.club
+        // ぶかつマスは なかまが でる
+        val fr = friendChara(p, cell.i)
+        if (fr != null) castNow = listOf(fr)
         if (c == null) {
             applyDelta(p, cell.d)
             message(cell.title, cell.text + "\n" + deltaText(cell.d)) { after() }
@@ -1530,6 +1614,7 @@ class MainActivity : Activity() {
         if (cell.deai && p.partner == null && partners.size > 0) {
             val met = partners[Random.nextInt(partners.size)]
             addAff(p, met, 3)
+            castNow = listOf(met)
             body = body + "\n\n" + c.deaiText + "\n" + met.name + "　" + affBar(affOf(p, met))
         }
         message(cell.title, body) { after() }
@@ -1538,6 +1623,7 @@ class MainActivity : Activity() {
     private fun onLanded(p: Player, allowChain: Boolean) {
         val cell = cells[p.pos]
         currentBg = cell.bg
+        castNow = castOf(p, cell)
         boardView?.invalidate()
 
         if (cell.type == "STAGEGOAL") {
@@ -1567,9 +1653,11 @@ class MainActivity : Activity() {
                 applyDelta(p, c.d)
                 flash(cell.title, c.label + "：" + c.text + "\n" + deltaText(c.d)) { afterCell(p, cell, allowChain) }
             } else {
+                val cast = castNow
+                castNow = ArrayList()
                 val b = AlertDialog.Builder(this)
                 b.setTitle(cell.title)
-                b.setMessage(cell.text)
+                b.setView(eventView(p, cell.text, cast))
                 b.setCancelable(false)
                 b.setPositiveButton(cell.choices[0].label) { _, _ ->
                     val c = cell.choices[0]

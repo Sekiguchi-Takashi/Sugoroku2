@@ -136,9 +136,15 @@ for c in empty:
         errors.append("通過マスに bg があるが表示されない at %d" % c["i"])
 
 bgcells = [c for c in cells if c.get("bg")]
-if len(bgcells) > 94:
-    warns.append("bg つきのマスが %d。ねらいは約90" % len(bgcells))
-NODIALOG = ("CHOICE", "CRUSH", "START", "CLUBEVENT")
+if len(bgcells) > 160:
+    warns.append("bg つきのマスが %d。ダイアログを開くマスは全部つける方針" % len(bgcells))
+NODIALOG = ("CRUSH", "START", "CLUBEVENT")
+# ダイアログを ひらく マスには かならず 背景を つける（v4.0の方針）
+for c in cells:
+    if c["type"] in NODIALOG or c in empty:
+        continue
+    if not c.get("bg"):
+        errors.append("背景が ないマス at %d %s" % (c["i"], c.get("title")))
 for c in bgcells:
     if c["type"] in NODIALOG:
         errors.append("%s は message() を開かないので bg が出ない at %d" % (c["type"], c["i"]))
@@ -208,6 +214,8 @@ if pools:
                 errors.append("missing pool bg: " + c["bg"])
             if c["type"] in NODIALOG and c.get("bg"):
                 errors.append("%s: %s は 背景が でない" % (key, c["type"]))
+            if not c.get("bg") and c["type"] not in NODIALOG:
+                errors.append("%s: プールの %s に 背景が ない" % (key, c["title"]))
     # こいのマスは いれかえに よらず かならず のこる
     for key, st in stagemap.items():
         if key not in pools:

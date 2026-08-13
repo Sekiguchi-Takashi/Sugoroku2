@@ -18,7 +18,7 @@ STAGES = [
     ("univ", "だいがく・しんしゃかいじん", UNIV),
 ]
 
-TARGET_BG = 90
+TARGET_BG = 999
 DELTA = ("st", "sp", "pp", "mn", "move", "rest")
 
 
@@ -39,7 +39,8 @@ for key, name, arr in STAGES:
 
 # ---- bg を約80マスに絞る ----
 # 背景は message() を開くマスでしか表示されない（CHOICE / CRUSH / START / 空マスは出ない）
-NODIALOG = ("CHOICE", "CRUSH", "START", "CLUBEVENT")
+# CHOICE は v4.0 から 背景つきの ダイアログに なった。CLUBEVENT は ぶかつ側の 絵を つかう
+NODIALOG = ("CRUSH", "START", "CLUBEVENT")
 TOP = ("STAGEGOAL", "GOAL", "CHALLENGE", "RANDOM", "AGAIN")
 
 
@@ -161,13 +162,46 @@ out["types"] = [
      "text": "どれも まんべんなく ふえる。"},
 ]
 
+# ---- イベントに でてくる 人（cast）----
+# 本文に はっきり 人が でてくる ときだけ、ダイアログに その 人を だす。
+# friend=ともだち / love=きに なる人・こいびと
+FRIEND_WORDS = ("ともだち", "おともだち", "みんな", "クラスの", "クラスメイト", "なかま",
+                "チーム", "こうはい", "ペア", "はんの")
+LOVE_WORDS = ("こいびと", "デート", "こくはく", "かのじょ", "かれし", "きに なる人")
+# ともだちが でるのは ほいくえん から、こいは ちゅうがっこう から
+FRIEND_FROM = "kinder"
+LOVE_FROM = "jhs"
+
+
+def cast_of(c, stagekey, order):
+    body = c.get("title", "") + c.get("text", "")
+    for ch in c.get("choices", []):
+        body += ch.get("label", "") + ch.get("text", "")
+    roles = []
+    if order[stagekey] >= order[LOVE_FROM]:
+        if c["type"] in ("DATE", "LOVE") or any(w in body for w in LOVE_WORDS):
+            roles.append("love")
+    if order[stagekey] >= order[FRIEND_FROM] and any(w in body for w in FRIEND_WORDS):
+        roles.append("friend")
+    return roles[:2]
+
+
+order = {}
+for n, st in enumerate(stages):
+    order[st["key"]] = n
+for st in stages:
+    for j in range(st["from"], st["to"] + 1):
+        r = cast_of(cells[j], st["key"], order)
+        if r:
+            cells[j]["cast"] = r
+
 ordered = []
 for c in cells:
     o = collections.OrderedDict()
     o["i"] = c["i"]
     o["type"] = c["type"]
     for k in ("title", "text", "stat", "need", "okText", "ngText", "ok", "ng",
-              "choices", "goal", "love", "deai", "tag", "swap",
+              "choices", "goal", "love", "deai", "tag", "swap", "cast",
               "st", "sp", "pp", "mn", "move", "rest", "bg"):
         if k in c:
             o[k] = c[k]
