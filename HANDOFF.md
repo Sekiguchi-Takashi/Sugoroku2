@@ -107,6 +107,7 @@ python3 tools/validate.py      # 納品前チェック（res/drawable が無け�
 
 ## 落とし穴
 - Kotlin文字列テンプレート罠：`$変数` の直後に日本語でビルド失敗。本ソースは `+` 連結のみ
+- **`.github/workflows/build.yml` に `actions/upload-artifact` を入れない**。Artifacts ストレージの無料枠（0.5GB）が枯渇すると "Artifact storage quota has been hit" でビルドごと失敗する。APK は Release から配布するので Artifacts は不要で、build.yml は main への push でコンパイルが通るかを見るだけのもの
 - **`deploy.sh` は恒久仕様（2026-08〜）**。`git add -A` → commit → **`git pull --rebase origin main`** → push → GitHub API で最新リリースのタグ末尾を +1 して `git/refs` にタグを POST、まで1コマンド。`GHUSER=Sekiguchi-Takashi` / `REPO=Sugoroku2`
   - `pull --rebase` は必須。カタログ管理システムが API 経由で `.github/workflows/release.yml` と `ci/appathy.keystore` を直接コミットしているため、無いと push が rejected になる
   - **`ci/` と `.github/workflows/release.yml` は配布ビルドに必要なので消さない**（納品ZIPには含めない＝上書きも削除もしない）
@@ -117,6 +118,7 @@ python3 tools/validate.py      # 納品前チェック（res/drawable が無け�
 ## バージョン履歴
 | Ver | 内容 |
 |---|---|
+| v4.2 | **`.github/workflows/build.yml` から `actions/upload-artifact` を削除**（アプリの中身は v4.0 と同じ）。Artifacts の無料枠0.5GBが枯渇して "Artifact storage quota has been hit" でビルドが落ちるため。APKは `release.yml` が作る Release から配布する。build.yml はコンパイルが通るかの確認用に格下げし、名前も `Build check` に変更 |
 | v4.1 | **`deploy.sh` を恒久仕様に差し替え**（アプリの中身は v4.0 と同じ）。`git pull --rebase origin main` と、GitHub API で次のタグを自動採番して打つところまでを1コマンドに含めた |
 | v4.0 | **イベントに他のキャラと恋人候補が出るようにした**。セルに `cast` を自動付与し、ダイアログの背景の上に自分＋ともだち／恋人候補を並べる。デートの相手選びは候補3人が絵つきで並ぶ。**背景をダイアログを開く全マス（150マス）に拡大**し、足りていなかったマスに手持ちの画像を割り当て、CHOICEマスも背景つきダイアログに変更（背景の90マス上限は撤廃）。`tools/validate.py` は背景なしのマスをエラーにする |
 | v3.9 | CIの修正のみ（アプリの中身は v3.8 と同じ）。`gradle/actions/setup-gradle` を **v3→v4**（v3はNode20で非推奨警告が出る）。Gradle 8.9 のダウンロードが 503 で落ちた場合にそなえ、**プロビジョニング自体を最大3回**（120秒・240秒待ち）リトライするようにした。ビルド本体の403リトライは従来どおり |
