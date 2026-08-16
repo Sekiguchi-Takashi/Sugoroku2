@@ -2043,7 +2043,7 @@ class MainActivity : Activity() {
         // ステージごとの盤面背景（イベント用の bg_*.jpg を流用）
         private fun boardBgName(si: Int): String {
             if (si == 0) return "bg_park_day"
-            if (si == 1) return "bg_playground"
+            if (si == 1) return "bg_nursery_gate"
             if (si == 2) return "bg_schoolyard"
             if (si == 3) return "bg_school_route"
             if (si == 4) return "bg_highschool_day"

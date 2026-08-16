@@ -50,6 +50,7 @@ bg_mall_bright.jpg
 bg_mountain_trail.jpg
 bg_music_room.jpg
 bg_nurse_room.jpg
+bg_nursery_gate.jpg
 bg_nursery_room.jpg
 bg_old_town.jpg
 bg_paris.jpg

@@ -78,7 +78,7 @@ python3 tools/validate.py      # 納品前チェック（res/drawable が無け�
 - 恋人：DATEでこうかんどを上げ、LOVEマスで告白して成立（v3.8で仕様変更）。得点+15
 - 2〜4人プレイ（人の数を選び残りはCPU）、全員ゴールで順位＋エンディング4種
 - **盤面はA面（SugorokuApp v5.5-A）と同じスタイル**：写真背景（ステージごとに bg_*.jpg を流用、カメラ0.25倍のパララックス・左右反転タイリング）＋フラットな円マス（種別ごとの色＋記号）＋盤面上部に「いまのステージ全体」のミニマップ＋手番のコマは大きく はねる
-  - ステージ背景の対応：baby=bg_park_day / kinder=bg_playground / elem=bg_schoolyard / jhs=bg_school_route / high=bg_highschool_day / univ=bg_town_crossing（BoardView.boardBgName）
+  - ステージ背景の対応：baby=bg_park_day / kinder=**bg_nursery_gate** / elem=bg_schoolyard / jhs=bg_school_route / high=bg_highschool_day / univ=bg_town_crossing（BoardView.boardBgName）
   - マスの記号：S / G / 🚩STAGEGOAL / 🏅CLUBEVENT / ☕DATE / 💞LOVE / 🌸CHALLENGE / 💗CRUSH / ⭐GOOD / 💧BAD / 🌀WARP / 💤REST / ❓CHOICE / 🎲RANDOM / 🔁AGAIN、通過マスは番号
   - ズームボタン🔍で 3 / 5 / 8マス表示を切替（A面と同じ Zoom オブジェクト）。205マスでも全体ミニマップにせず**ステージ単位**で見せる（40マスなら点が読める）
   - こくはく成立後は恋人のコマが隣に並ぶ（A面の結婚パートナー描画と同じ寸法）
@@ -118,6 +118,7 @@ python3 tools/validate.py      # 納品前チェック（res/drawable が無け�
 ## バージョン履歴
 | Ver | 内容 |
 |---|---|
+| v4.3 | ほいくえんステージの盤面背景を **`bg_nursery_gate`（ひまわり保育園の外観・園庭）** に差し替え。画像を1枚追加して計87枚。「ほいくえんの もん」と「じゆうじかん」のイベント背景も同じ絵にした |
 | v4.2 | **`.github/workflows/build.yml` から `actions/upload-artifact` を削除**（アプリの中身は v4.0 と同じ）。Artifacts の無料枠0.5GBが枯渇して "Artifact storage quota has been hit" でビルドが落ちるため。APKは `release.yml` が作る Release から配布する。build.yml はコンパイルが通るかの確認用に格下げし、名前も `Build check` に変更 |
 | v4.1 | **`deploy.sh` を恒久仕様に差し替え**（アプリの中身は v4.0 と同じ）。`git pull --rebase origin main` と、GitHub API で次のタグを自動採番して打つところまでを1コマンドに含めた |
 | v4.0 | **イベントに他のキャラと恋人候補が出るようにした**。セルに `cast` を自動付与し、ダイアログの背景の上に自分＋ともだち／恋人候補を並べる。デートの相手選びは候補3人が絵つきで並ぶ。**背景をダイアログを開く全マス（150マス）に拡大**し、足りていなかったマスに手持ちの画像を割り当て、CHOICEマスも背景つきダイアログに変更（背景の90マス上限は撤廃）。`tools/validate.py` は背景なしのマスをエラーにする |
