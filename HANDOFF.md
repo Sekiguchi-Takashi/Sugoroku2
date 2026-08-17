@@ -9,7 +9,7 @@ A面（どうぶつすごろく）と `bside/` は旧リポジトリに残って
 | モジュール | `app/`（単一モジュール） |
 | applicationId | `com.appathy.sugoroku.human`（旧リポジトリ時代と同じ。**署名も同じ debug.keystore を引き継いだので上書き更新できる**） |
 | ラベル | すごろく人生ゲーム |
-| CI | `.github/workflows/build.yml` → artifact `Sugoroku2-debug-apk` / `app-debug.apk`（Maven Central 403 対策のリトライ入り） |
+| CI | `.github/workflows/release.yml` のみ（タグ起動でビルド → Release 作成）。**build.yml は作らない** |
 | 納品 | `Sugoroku2_vX.X.zip`（トップフォルダ名は固定 `Sugoroku2`）＋ 直下の `deploy.sh` |
 | 検証 | `python3 tools/validate.py` |
 
@@ -107,9 +107,14 @@ python3 tools/validate.py      # 納品前チェック（res/drawable が無け�
 
 ## 落とし穴
 - Kotlin文字列テンプレート罠：`$変数` の直後に日本語でビルド失敗。本ソースは `+` 連結のみ
-- **`.github/workflows/build.yml` に `actions/upload-artifact` を入れない**。Artifacts ストレージの無料枠（0.5GB）が枯渇すると "Artifact storage quota has been hit" でビルドごと失敗する。APK は Release から配布するので Artifacts は不要で、build.yml は main への push でコンパイルが通るかを見るだけのもの
+- **CI は `release.yml`（タグ起動）だけ。`build.yml` は作らない**。`actions/upload-artifact` も使わない（Artifacts の無料枠0.5GBが枯渇すると "Artifact storage quota has been hit" で全ビルドが落ちる）。APK は Release から配布する
+- **`ci/` と `.github/workflows/release.yml` は配布ビルドに必要。削除・追跡解除しない**（納品ZIPにも含めないので `unzip -o` で消えることはない）
+- **ファイルを削除する納品では `deploy.sh` に `rm -f 対象パス` を足す**。`unzip -o` は端末に残っている旧ファイルを消さないため
+- **納品はバージョン番号付きZIP＋同じメッセージ内に実行4行ブロック**。冒頭に【本番】か【テスト】を明示。シェルは `echo` 禁止・対話入力禁止・トークンをチャットに貼らせない
 - **`deploy.sh` は恒久仕様（2026-08〜）**。`git add -A` → commit → **`git pull --rebase origin main`** → push → GitHub API で最新リリースのタグ末尾を +1 して `git/refs` にタグを POST、まで1コマンド。`GHUSER=Sekiguchi-Takashi` / `REPO=Sugoroku2`
   - `pull --rebase` は必須。カタログ管理システムが API 経由で `.github/workflows/release.yml` と `ci/appathy.keystore` を直接コミットしているため、無いと push が rejected になる
+  - **次のタグは `git fetch --tags` → `git tag --list 'v*' | sort -V | tail -1` から算出し、`git tag` / `git push origin タグ名` でローカル発行する**。GitHub API の `git/ref/heads/main` 参照は反映遅延で一つ前のコミットに付くことがあるため禁止
+  - 第2引数に `notag` を渡すと push だけして終わる（`bash deploy.sh "メッセージ" notag`）
   - **`ci/` と `.github/workflows/release.yml` は配布ビルドに必要なので消さない**（納品ZIPには含めない＝上書きも削除もしない）
   - タグが打たれると Actions がビルドして Release を作り、自作アプリストアに更新として現れる
 - 納品前に `python3 tools/validate.py`（`tools/gen/build.py` を回したあとは必ず）
@@ -118,6 +123,7 @@ python3 tools/validate.py      # 納品前チェック（res/drawable が無け�
 ## バージョン履歴
 | Ver | 内容 |
 |---|---|
+| v4.4 | 納品規約にあわせて **`deploy.sh` の次タグ算出を GitHub API からローカルの `git tag --list 'v*' | sort -V` に変更**（API参照は反映遅延で一つ前のコミットにタグが付くため）。第2引数 `notag` で push のみ。**`.github/workflows/build.yml` を廃止**し、`deploy.sh` に `rm -f .github/workflows/build.yml` を追加（`unzip -o` では端末の旧ファイルが消えないため）。CIは `release.yml` のみ |
 | v4.3 | ほいくえんステージの盤面背景を **`bg_nursery_gate`（ひまわり保育園の外観・園庭）** に差し替え。画像を1枚追加して計87枚。「ほいくえんの もん」と「じゆうじかん」のイベント背景も同じ絵にした |
 | v4.2 | **`.github/workflows/build.yml` から `actions/upload-artifact` を削除**（アプリの中身は v4.0 と同じ）。Artifacts の無料枠0.5GBが枯渇して "Artifact storage quota has been hit" でビルドが落ちるため。APKは `release.yml` が作る Release から配布する。build.yml はコンパイルが通るかの確認用に格下げし、名前も `Build check` に変更 |
 | v4.1 | **`deploy.sh` を恒久仕様に差し替え**（アプリの中身は v4.0 と同じ）。`git pull --rebase origin main` と、GitHub API で次のタグを自動採番して打つところまでを1コマンドに含めた |
