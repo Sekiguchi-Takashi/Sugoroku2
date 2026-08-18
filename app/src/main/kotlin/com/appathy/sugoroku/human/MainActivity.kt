@@ -178,6 +178,71 @@ class MainActivity : Activity() {
         return g
     }
 
+    /** えらぶ画面の 1こ。label=ボタンの 文字 / hint=「？」で ひらく 小さな せつめい */
+    class PickItem(val label: String, val hint: CharSequence)
+
+    /**
+     * ボタンだけ ならべた えらぶ画面。ヒントは たたんであるので 画面が こまない。
+     * head に ビューを わたすと 上に つく（デートの 絵など）。
+     */
+    private fun showPicker(title: String, head: View?, items: List<PickItem>, onPick: (Int) -> Unit) {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        box.setPadding(dpi(14f), dpi(10f), dpi(14f), dpi(10f))
+        if (head != null) box.addView(head)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(ScrollView(this).also { it.addView(box) })
+            .setCancelable(false)
+            .create()
+
+        var i = 0
+        while (i < items.size) {
+            val item = items[i]
+            val index = i
+
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+
+            val btn = styledButton(item.label, 17f, Color.parseColor("#4CAF50"))
+            btn.setOnClickListener {
+                dialog.dismiss()
+                onPick(index)
+            }
+            row.addView(btn, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+            val detail = TextView(this)
+            detail.text = item.hint
+            detail.textSize = 14f
+            detail.setTextColor(Color.parseColor("#37474F"))
+            detail.background = roundedBg(Color.parseColor("#F1F8E9"))
+            detail.setPadding(dpi(10f), dpi(6f), dpi(10f), dpi(6f))
+            detail.visibility = View.GONE
+
+            val q = styledButton("？", 15f, Color.parseColor("#90A4AE"))
+            q.setOnClickListener {
+                detail.visibility = if (detail.visibility == View.GONE) View.VISIBLE else View.GONE
+            }
+            val qlp = LinearLayout.LayoutParams(dpi(52f), ViewGroup.LayoutParams.WRAP_CONTENT)
+            qlp.leftMargin = dpi(8f)
+            row.addView(q, qlp)
+
+            val rlp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            rlp.topMargin = dpi(6f)
+            box.addView(row, rlp)
+
+            val dlp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            dlp.topMargin = dpi(4f)
+            box.addView(detail, dlp)
+            i++
+        }
+        dialog.show()
+    }
+
     private fun styledButton(labelText: String, size: Float, fill: Int): Button {
         val b = Button(this)
         b.text = labelText
@@ -895,7 +960,7 @@ class MainActivity : Activity() {
         if (cb != null) extra = "　" + cb.icon + cb.name + extra
         val line = me.chara.name + tag + "　べんきょう" + me.st + " うんどう" + me.sp +
                 " にんき" + me.pp + " おこづかい" + me.mn + "えん" + extra
-        bar.text = colorizeStats(line)
+        bar.text = colorizeStats(line, true)
     }
 
     private fun log(s: String) {
@@ -1007,15 +1072,23 @@ class MainActivity : Activity() {
     private val COL_PP = Color.parseColor("#C62828")
     private val COL_MN = Color.parseColor("#00695C")
 
-    private fun statColor(name: String): Int {
-        if (name == "べんきょう") return COL_ST
-        if (name == "うんどう") return COL_SP
-        if (name == "にんき") return COL_PP
-        return COL_MN
+    // くらい 背景（下の ステータスバー）用の あかるい いろ
+    private val COL_ST_D = Color.parseColor("#A5D6A7")
+    private val COL_SP_D = Color.parseColor("#FFCC80")
+    private val COL_PP_D = Color.parseColor("#FF8A80")
+    private val COL_MN_D = Color.parseColor("#80CBC4")
+
+    private fun statColor(name: String, onDark: Boolean): Int {
+        if (name == "べんきょう") return if (onDark) COL_ST_D else COL_ST
+        if (name == "うんどう") return if (onDark) COL_SP_D else COL_SP
+        if (name == "にんき") return if (onDark) COL_PP_D else COL_PP
+        return if (onDark) COL_MN_D else COL_MN
     }
 
     /** 文章の なかの「べんきょう+3」などを いろ分けして ふとじに する。 */
-    private fun colorizeStats(text: String): CharSequence {
+    private fun colorizeStats(text: String): CharSequence = colorizeStats(text, false)
+
+    private fun colorizeStats(text: String, onDark: Boolean): CharSequence {
         val sb = SpannableStringBuilder(text)
         val names = arrayOf("べんきょう", "うんどう", "にんき", "おこづかい")
         var n = 0
@@ -1030,7 +1103,7 @@ class MainActivity : Activity() {
                 if (end < text.length && (text[end] == '+' || text[end] == '-')) end++
                 while (end < text.length && text[end] >= '0' && text[end] <= '9') end++
                 if (end + 1 < text.length && text.substring(end, end + 2) == "えん") end += 2
-                val col = statColor(name)
+                val col = statColor(name, onDark)
                 sb.setSpan(ForegroundColorSpan(col), at, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 sb.setSpan(StyleSpan(Typeface.BOLD), at, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 from = end
@@ -1115,6 +1188,13 @@ class MainActivity : Activity() {
 
     // 背景と 登場人物を のせた ダイアログの なかみ
     private fun eventView(p: Player, body: String, cast: List<Chara>): ScrollView {
+        val sv = ScrollView(this)
+        sv.addView(eventContent(p, body, cast))
+        return sv
+    }
+
+    /** ScrollView で つつむ まえの なかみ。えらぶ画面の 上に つけるときは こちらを つかう。 */
+    private fun eventContent(p: Player, body: String, cast: List<Chara>): LinearLayout {
         val content = LinearLayout(this)
         content.orientation = LinearLayout.VERTICAL
         content.setPadding(dpi(12f), dpi(12f), dpi(12f), dpi(12f))
@@ -1136,7 +1216,6 @@ class MainActivity : Activity() {
             val key = stageKeyAt(p.pos)
             val me = ImageView(this)
             me.setImageResource(charaRes(p.chara, key, ""))
-            me.rotation = 3f
             val mlp = LinearLayout.LayoutParams(dpi(104f), dpi(104f))
             mlp.bottomMargin = dpi(6f)
             mlp.leftMargin = dpi(2f)
@@ -1151,7 +1230,6 @@ class MainActivity : Activity() {
                 if (res != 0) {
                     val cv = ImageView(this)
                     cv.setImageResource(res)
-                    cv.rotation = if (i == 0) -4f else 5f
                     val clp = LinearLayout.LayoutParams(sz, sz)
                     clp.bottomMargin = dpi(6f)
                     clp.leftMargin = dpi(2f)
@@ -1178,9 +1256,7 @@ class MainActivity : Activity() {
         tlp.topMargin = dpi(10f)
         content.addView(tv, tlp)
 
-        val sv = ScrollView(this)
-        sv.addView(content)
-        return sv
+        return content
     }
 
     private var castNow: List<Chara> = ArrayList()
@@ -1293,18 +1369,17 @@ class MainActivity : Activity() {
             handler.postDelayed({ askType(index + 1, stageName, after) }, 120)
             return
         }
-        val names = Array<CharSequence>(playTypes.size) { n ->
+        val items = ArrayList<PickItem>()
+        var n = 0
+        while (n < playTypes.size) {
             val t = playTypes[n]
-            colorizeStats(t.icon + " " + t.name + "　" + t.text)
+            items.add(PickItem(t.icon + " " + t.name, colorizeStats(t.text)))
+            n++
         }
-        val b = AlertDialog.Builder(this)
-        b.setTitle(stageName + "：" + p.chara.name + " の すごしかた")
-        b.setCancelable(false)
-        b.setItems(names) { _, which ->
+        showPicker(stageName + "：" + p.chara.name + " の すごしかた", null, items) { which ->
             p.type = playTypes[which].key
             askType(index + 1, stageName, after)
         }
-        b.show()
     }
 
     // ステージの いれかえスロットを、みんなが えらんだ タイプに よせて はりかえる
@@ -1393,25 +1468,24 @@ class MainActivity : Activity() {
             if (clubs[k] !== keep) order.add(clubs[k])
             k++
         }
-        val names = Array<CharSequence>(order.size) { n ->
+        val items = ArrayList<PickItem>()
+        var n = 0
+        while (n < order.size) {
             val c = order[n]
-            val head = if (c === keep) "つづける　" else ""
-            colorizeStats(head + c.icon + " " + c.name + "　" + deltaText(c.d))
+            val head = if (c === keep) "つづける " else ""
+            items.add(PickItem(head + c.icon + " " + c.name, colorizeStats(deltaText(c.d))))
+            n++
         }
-        val b = AlertDialog.Builder(this)
-        b.setTitle(stageName + "：" + p.chara.name + " の ぶかつを えらぼう")
-        b.setCancelable(false)
-        b.setItems(names) { _, which ->
+        showPicker(stageName + "：" + p.chara.name + " の ぶかつ", null, items) { which ->
             val c = order[which]
             joinClub(p, c)
             val d = AlertDialog.Builder(this)
             d.setTitle(c.icon + c.name)
-            d.setMessage(c.joinText + "\n" + deltaText(c.join))
+            d.setMessage(colorizeStats(c.joinText + "\n" + deltaText(c.join)))
             d.setCancelable(false)
             d.setPositiveButton("OK") { _, _ -> askClub(index + 1, stageName, after) }
             d.show()
         }
-        b.show()
     }
 
     private fun pickClubForCpu(p: Player): Club {
@@ -1497,17 +1571,16 @@ class MainActivity : Activity() {
             flash(cell.title, c.name + " と はなした") { after() }
             return
         }
-        val names = Array<CharSequence>(pool.size) { k ->
-            val c = pool[k]
-            c.name + "　" + affBar(affOf(p, c))
-        }
         // でてくる 3人の かおを 背景の うえに ならべる
         castNow = ArrayList()
-        val b = AlertDialog.Builder(this)
-        b.setTitle(cell.title + "：だれを さそう？")
-        b.setView(eventView(p, cell.text, pool))
-        b.setCancelable(false)
-        b.setItems(names) { _, which ->
+        val items = ArrayList<PickItem>()
+        var k = 0
+        while (k < pool.size) {
+            val c = pool[k]
+            items.add(PickItem(c.name, "なかよし " + affBar(affOf(p, c))))
+            k++
+        }
+        showPicker(cell.title + "：だれを さそう？", eventContent(p, cell.text, pool), items) { which ->
             val c = pool[which]
             addAff(p, c, 3)
             val d = AlertDialog.Builder(this)
@@ -1517,7 +1590,6 @@ class MainActivity : Activity() {
             d.setPositiveButton("OK") { _, _ -> after() }
             d.show()
         }
-        b.show()
     }
 
     private fun affBar(v: Int): String {
@@ -1680,6 +1752,16 @@ class MainActivity : Activity() {
         message(cell.title, body) { after() }
     }
 
+    /** 2択のあとの けっかも、おなじ 絵と 人の ついた イベント枠で 見せる。 */
+    private fun choiceResult(p: Player, cell: Cell, c: Choice, cast: List<Chara>, allowChain: Boolean) {
+        applyDelta(p, c.d)
+        currentBg = cell.bg
+        castNow = cast
+        message(cell.title, c.label + "\n" + c.text + "\n" + deltaText(c.d)) {
+            afterCell(p, cell, allowChain)
+        }
+    }
+
     private fun onLanded(p: Player, allowChain: Boolean) {
         val cell = cells[p.pos]
         currentBg = cell.bg
@@ -1720,14 +1802,10 @@ class MainActivity : Activity() {
                 b.setView(eventView(p, cell.text, cast))
                 b.setCancelable(false)
                 b.setPositiveButton(cell.choices[0].label) { _, _ ->
-                    val c = cell.choices[0]
-                    applyDelta(p, c.d)
-                    flash(cell.title, c.text + "\n" + deltaText(c.d)) { afterCell(p, cell, allowChain) }
+                    choiceResult(p, cell, cell.choices[0], cast, allowChain)
                 }
                 b.setNegativeButton(cell.choices[1].label) { _, _ ->
-                    val c = cell.choices[1]
-                    applyDelta(p, c.d)
-                    flash(cell.title, c.text + "\n" + deltaText(c.d)) { afterCell(p, cell, allowChain) }
+                    choiceResult(p, cell, cell.choices[1], cast, allowChain)
                 }
                 b.show()
             }
