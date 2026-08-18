@@ -6,6 +6,7 @@ bg_art_room.jpg
 bg_baby_bath.jpg
 bg_baby_room.jpg
 bg_baby_shop.jpg
+bg_bay_night.jpg
 bg_beach.jpg
 bg_bowling.jpg
 bg_bus.jpg
@@ -13,6 +14,7 @@ bg_cabin_living.jpg
 bg_cabin_outside.jpg
 bg_cafe.jpg
 bg_campsite.jpg
+bg_campus_wide.jpg
 bg_carousel.jpg
 bg_ceremony_hall.jpg
 bg_cinema.jpg
@@ -30,6 +32,7 @@ bg_cram_school.jpg
 bg_cruise_lobby.jpg
 bg_delivery_room.jpg
 bg_desk_work.jpg
+bg_elem_road.jpg
 bg_family_restaurant.jpg
 bg_farm.jpg
 bg_ferris_cabin.jpg
@@ -40,9 +43,11 @@ bg_forest_real.jpg
 bg_graduation.jpg
 bg_gym.jpg
 bg_hanami.jpg
+bg_high_gate.jpg
 bg_highschool_day.jpg
 bg_highschool_rain.jpg
 bg_hospital_room.jpg
+bg_jhs_ground.jpg
 bg_library.jpg
 bg_lodge_night.jpg
 bg_mall.jpg
@@ -76,6 +81,7 @@ bg_shoe_locker_wood.jpg
 bg_ski_resort.jpg
 bg_ski_slope.jpg
 bg_sports_festival.jpg
+bg_stadium.jpg
 bg_staff_room.jpg
 bg_station_day.jpg
 bg_station_night.jpg
@@ -97,6 +103,13 @@ chara_elem07.png
 chara_elem09.png
 chara_elem10.png
 chara_elem12.png
+chara_ev01.png
+chara_ev02.png
+chara_ev03.png
+chara_ev04.png
+chara_ev05.png
+chara_ev06.png
+chara_ev07.png
 chara_high01.png
 chara_high02.png
 chara_high03.png

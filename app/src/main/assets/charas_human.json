@@ -10,7 +10,7 @@
     "work",
     "senior"
   ],
-  "note": "human=プレイヤー6人 / partner=恋人候補6人。images に無いステージは近いステージへフォールバック。向き違いは同名+_s(側面)/_b(背面)を置くと自動的に使われる。",
+  "note": "human=プレイヤー6人 / partner=恋人候補6人。images に無いステージは近いステージへフォールバック。向き違いは同名+_s(側面)/_b(背面)を置くと自動的に使われる。 event=高校・大学のイベントに でてくる 人（プレイヤーには えらべない）。",
   "sets": {
     "human": {
       "label": "プレイヤー",
@@ -150,6 +150,67 @@
             "jhs": "chara_jhs11",
             "high": "chara_high11",
             "univ": "chara_univ11"
+          }
+        }
+      ]
+    },
+    "event": {
+      "label": "イベントに でてくる 人",
+      "charas": [
+        {
+          "name": "あやね",
+          "img": "chara_ev01",
+          "images": {
+            "high": "chara_ev01",
+            "univ": "chara_ev01"
+          }
+        },
+        {
+          "name": "りょう",
+          "img": "chara_ev02",
+          "images": {
+            "high": "chara_ev02",
+            "univ": "chara_ev02"
+          }
+        },
+        {
+          "name": "みずき",
+          "img": "chara_ev03",
+          "images": {
+            "high": "chara_ev03",
+            "univ": "chara_ev03"
+          }
+        },
+        {
+          "name": "ことは",
+          "img": "chara_ev04",
+          "images": {
+            "high": "chara_ev04",
+            "univ": "chara_ev04"
+          }
+        },
+        {
+          "name": "そうすけ",
+          "img": "chara_ev05",
+          "images": {
+            "high": "chara_ev05",
+            "univ": "chara_ev05"
+          }
+        },
+        {
+          "name": "ひなの",
+          "img": "chara_ev06",
+          "images": {
+            "high": "chara_ev06",
+            "univ": "chara_ev06"
+          }
+        },
+        {
+          "name": "かいと",
+          "img": "chara_ev07",
+          "images": {
+            "high": "chara_ev07",
+            "univ": "chara_ev07"
           }
         }
       ]

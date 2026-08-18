@@ -27,7 +27,7 @@ bash ~/Sugoroku2/deploy.sh "vX.X 要約"
 - `debug.keystore` はリポジトリ直下にコミット済み（storepass/keypass: `android`、alias: `androiddebugkey`）
 - Kotlin文字列テンプレート罠：`$変数` の直後に日本語でビルド失敗。本ソースは `+` 連結のみ
 
-## ゲーム仕様（v4.0 = 205マス盤 + A面UI + ぶかつ + こい）
+## ゲーム仕様（v4.5 = 205マス盤 + A面UI + ぶかつ + こい）
 人生すごろく。あかちゃん(0-19 / 20マス) → ほいくえん(20-44 / 25) → しょうがっこう(45-84 / 40) → ちゅうがっこう(85-124 / 40) → こうこう(125-164 / 40) → だいがく・しんしゃかいじん(165-204 / 40) の**205マス**。
 盤面データは `app/src/main/assets/events_human.json` のみ。マス数・ステージ範囲を変えるときは `stages` の from/to と `cells` の `i` を必ず連番で揃える（`tools/validate.py` が検査する）。
 
@@ -63,12 +63,13 @@ python3 tools/validate.py      # 納品前チェック（res/drawable が無け�
   - 1ゲーム1人あたりの遭遇回数（実測）：全員こい＝デート2.4回／こい2.6回、こい1人＝1.8回／1.8回、こい0人＝1.2回／1.4回
 - **イベントに出る人（v4.0〜）**：セルの `cast`（`friend` / `love`）に応じて、ダイアログの背景の上に自分＋最大2人を並べる
   - `cast` は `tools/gen/build.py` が本文のことばから自動でつける（ともだち・みんな・クラスの・なかま・チーム・こうはい・ペア → `friend`、こいびと・デート・こくはく・かのじょ・かれし・きに なる人 と DATE/LOVE → `love`）。`friend` は ほいくえん から、`love` は ちゅうがっこう から
-  - `friend` はプレイヤーが使っていないキャラを優先（いなければ他プレイヤーのキャラ）。マス番号で決まるので同じマスなら毎回同じ人が出る
+  - `friend` は **こうこう・だいがくでは専用の `event` キャラ7人**（`chara_ev01`〜`chara_ev07`、`charas_human.json` の `sets.event`）から出す。それより前のステージはプレイヤーが使っていないキャラを優先（いなければ他プレイヤーのキャラ）。マス番号で決まるので同じマスなら毎回同じ人が出る
   - `love` は こいびと、いなければ いちばん好感度の高い候補。デートの相手選びでは候補3人が並んで出る、告白・けんか・別れの場面では相手が出る、ぶかつマスでは部活仲間が出る
   - **CHOICEマスも背景つきダイアログになった**（v3.9まではAlertDialogの素の本文で背景が出せず、`build.py` が近くのマスへ寄せていた）。背景が出ないのは `START` / `CRUSH`（廃止済み）/ `CLUBEVENT`（部活側の絵を使う）だけ
 - **ステージ先頭のマスには効果を置かない**：STAGEGOALで全員がワープしてくる先なので、誰も「止まる」判定を通らず `onLanded` が呼ばれない。v3.7 で各ステージ先頭を通過マス（もん・こうもん など）に統一し、にゅうがく系イベントと `CRUSH` は1〜2マス後ろへ移した
 - **STAGEGOAL**：各ステージの最終マス。誰か1人が到達したら全員が次ステージの先頭へワープする。到達者は stageWins+1（+10点）。ルーレットで行き過ぎることはなく、ステージの最終マスで止まる
 - **通過マス**：`NORMAL` で `st/sp/pp/mn/move/rest` を1つも書かないマスは、ダイアログを出さずログだけ流れて自動で次へ進む。全205マス中48マス（23%）がこれ
+- **ステータスの色分け（v4.5〜）**：べんきょう=みどり `#2E7D32` / うんどう=オレンジ `#E65100` / にんき（こい）=あか `#C62828` / おこづかい=`#00695C`。`colorizeStats()` が文中の「べんきょう+3」「にんき55」などを拾って色＋太字にする（イベント本文・下部ステータスバー・ステータス画面・ぶかつ選択・すごしかた選択に適用）。ステータス名を変えるときは `colorizeStats` の `names` も直すこと
 - 背景：セルに `"bg": "bg_library"` を書くと、そのイベントのダイアログ上部に画像が出る（`res/drawable/bg_*.jpg`、横長800px・JPEG品質80）。**v4.0からダイアログを開くマスは全部に背景をつける方針**（150マス／86枚中78種を使用）。`tools/validate.py` が背景なしのマスをエラーにする
   - **背景が出るのは `message()` を開くマスだけ**。CHOICE / CRUSH は `AlertDialog` の素の本文、通過マスはダイアログ自体が無いので、そこに `"bg"` を書いても表示されない
 - もくひょう3種：`exam`（108 こうこうじゅけん / 146 さいごのしけん / 180 しかくしけん）・`sports`（90 たいかい）・`love`（126 こくはく）。CHALLENGEに `"goal"` を付けると成功時に達成。1個+20点
@@ -78,7 +79,8 @@ python3 tools/validate.py      # 納品前チェック（res/drawable が無け�
 - 恋人：DATEでこうかんどを上げ、LOVEマスで告白して成立（v3.8で仕様変更）。得点+15
 - 2〜4人プレイ（人の数を選び残りはCPU）、全員ゴールで順位＋エンディング4種
 - **盤面はA面（SugorokuApp v5.5-A）と同じスタイル**：写真背景（ステージごとに bg_*.jpg を流用、カメラ0.25倍のパララックス・左右反転タイリング）＋フラットな円マス（種別ごとの色＋記号）＋盤面上部に「いまのステージ全体」のミニマップ＋手番のコマは大きく はねる
-  - ステージ背景の対応：baby=bg_park_day / kinder=**bg_nursery_gate** / elem=bg_schoolyard / jhs=bg_school_route / high=bg_highschool_day / univ=bg_town_crossing（BoardView.boardBgName）
+  - ステージ背景の対応（BoardView.boardBgName）：baby=`bg_park_day` / kinder=`bg_nursery_gate` / elem=`bg_elem_road` / jhs=`bg_jhs_ground` / high=`bg_high_gate`
+  - **だいがくだけ、みんなが選んだ すごしかたで背景が変わる**：うんどうが最多→`bg_stadium`（球場）、こいが最多→`bg_bay_night`（夜景）、べんきょう・バランス・同数→`bg_campus_wide`（キャンパス）。`rearrange()` が重みを比べて `univBoardBg` に入れる
   - マスの記号：S / G / 🚩STAGEGOAL / 🏅CLUBEVENT / ☕DATE / 💞LOVE / 🌸CHALLENGE / 💗CRUSH / ⭐GOOD / 💧BAD / 🌀WARP / 💤REST / ❓CHOICE / 🎲RANDOM / 🔁AGAIN、通過マスは番号
   - ズームボタン🔍で 3 / 5 / 8マス表示を切替（A面と同じ Zoom オブジェクト）。205マスでも全体ミニマップにせず**ステージ単位**で見せる（40マスなら点が読める）
   - こくはく成立後は恋人のコマが隣に並ぶ（A面の結婚パートナー描画と同じ寸法）
@@ -123,6 +125,7 @@ python3 tools/validate.py      # 納品前チェック（res/drawable が無け�
 ## バージョン履歴
 | Ver | 内容 |
 |---|---|
+| v4.5 | **こうこう・だいがくのイベント専用キャラ7人を追加**（`chara_ev01`〜`07`、マゼンタ背景を抜いて透過PNG・高さ640px）。`charas_human.json` に `sets.event` を新設し、`friendChara()` が high/univ ではここから出す。**小学校〜大学の盤面背景を新しい写真6枚に差し替え**（`bg_elem_road` / `bg_jhs_ground` / `bg_high_gate` / `bg_campus_wide` / `bg_stadium` / `bg_bay_night`）。**だいがくの背景はすごしかたの投票で変化**（うんどう→球場、こい→夜景、それ以外→キャンパス）。**ステータスを色分け**（勉強=緑・運動=オレンジ・恋愛=赤）し、イベント中の増減表示も色つき太字に。たいかいCHALLENGEを球場、だいがくにゅうがくをキャンパスの絵に変更 |
 | v4.4 | 納品規約にあわせて **`deploy.sh` の次タグ算出を GitHub API からローカルの `git tag --list 'v*' | sort -V` に変更**（API参照は反映遅延で一つ前のコミットにタグが付くため）。第2引数 `notag` で push のみ。**`.github/workflows/build.yml` を廃止**し、`deploy.sh` に `rm -f .github/workflows/build.yml` を追加（`unzip -o` では端末の旧ファイルが消えないため）。CIは `release.yml` のみ |
 | v4.3 | ほいくえんステージの盤面背景を **`bg_nursery_gate`（ひまわり保育園の外観・園庭）** に差し替え。画像を1枚追加して計87枚。「ほいくえんの もん」と「じゆうじかん」のイベント背景も同じ絵にした |
 | v4.2 | **`.github/workflows/build.yml` から `actions/upload-artifact` を削除**（アプリの中身は v4.0 と同じ）。Artifacts の無料枠0.5GBが枯渇して "Artifact storage quota has been hit" でビルドが落ちるため。APKは `release.yml` が作る Release から配布する。build.yml はコンパイルが通るかの確認用に格下げし、名前も `Build check` に変更 |

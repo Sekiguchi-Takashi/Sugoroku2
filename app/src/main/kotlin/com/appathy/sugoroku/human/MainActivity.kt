@@ -21,6 +21,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Spannable
+import android.text.SpannableStringBuilder
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -137,6 +141,7 @@ class MainActivity : Activity() {
     }
     private var charas: List<Chara> = ArrayList()
     private var partners: List<Chara> = ArrayList()
+    private var eventCharas: List<Chara> = ArrayList()
     private var cells: MutableList<Cell> = ArrayList()
     private var stages: List<Stage> = ArrayList()
     private var endings: List<Ending> = ArrayList()
@@ -144,6 +149,8 @@ class MainActivity : Activity() {
     private var clubStages: List<String> = ArrayList()
     private var playTypes: List<PlayType> = ArrayList()
     private val pools = HashMap<String, Pool>()
+    // だいがくの 盤面背景（すごしかたの とうひょうで きまる）
+    private var univBoardBg = ""
 
     private var players: MutableList<Player> = ArrayList()
     private var turn = 0
@@ -350,6 +357,7 @@ class MainActivity : Activity() {
         val cj = JSONObject(readAsset("charas_human.json"))
         charas = readCharaSet(cj, "human")
         partners = readCharaSet(cj, "partner")
+        eventCharas = readCharaSet(cj, "event")
 
         val ej = JSONObject(readAsset("events_human.json"))
         var i = 0
@@ -710,6 +718,7 @@ class MainActivity : Activity() {
     private fun startGame() {
         turn = 0
         goalCount = 0
+        univBoardBg = ""
         logs.clear()
 
         val root = LinearLayout(this)
@@ -851,8 +860,8 @@ class MainActivity : Activity() {
             val p = players[i]
             val who = if (p.cpu) "（CPU）" else "（" + (i + 1) + "P）"
             sb.append(p.chara.name).append(who).append("\n")
-            sb.append("  べんきょう ").append(p.st).append(" / うんどう ").append(p.sp)
-            sb.append(" / にんき ").append(p.pp).append(" / ¥").append(p.mn).append("\n")
+            sb.append("  べんきょう").append(p.st).append("　うんどう").append(p.sp)
+            sb.append("　にんき").append(p.pp).append("　おこづかい").append(p.mn).append("えん\n")
             val cb = p.club
             if (cb != null) sb.append("  ").append(cb.icon).append(cb.name).append("\n")
             val mt = p.partner
@@ -864,13 +873,11 @@ class MainActivity : Activity() {
                 val tp = topCandidate(p)
                 if (tp != null) sb.append("  ").append(tp.name).append(" ").append(affBar(affOf(p, tp))).append("\n")
             }
-            val pt = p.partner
-            if (pt != null) sb.append("  ♥ ").append(pt.name).append("\n")
             sb.append("  ").append(goalLine(p)).append("\n\n")
             i++
         }
         AlertDialog.Builder(this).setTitle("ステータス")
-            .setMessage(sb.toString().trim())
+            .setMessage(colorizeStats(sb.toString().trim()))
             .setPositiveButton("とじる", null).show()
     }
 
@@ -886,8 +893,9 @@ class MainActivity : Activity() {
         if (me.goals.size > 0) extra = extra + "　★" + me.goals.size
         val cb = me.club
         if (cb != null) extra = "　" + cb.icon + cb.name + extra
-        bar.text = me.chara.name + tag + "　べんきょう" + me.st + " うんどう" + me.sp +
-                " にんき" + me.pp + " ¥" + me.mn + extra
+        val line = me.chara.name + tag + "　べんきょう" + me.st + " うんどう" + me.sp +
+                " にんき" + me.pp + " おこづかい" + me.mn + "えん" + extra
+        bar.text = colorizeStats(line)
     }
 
     private fun log(s: String) {
@@ -993,6 +1001,45 @@ class MainActivity : Activity() {
         updateStats()
     }
 
+    // ステータスの いろ。べんきょう=みどり / うんどう=オレンジ / こい(にんき)=あか
+    private val COL_ST = Color.parseColor("#2E7D32")
+    private val COL_SP = Color.parseColor("#E65100")
+    private val COL_PP = Color.parseColor("#C62828")
+    private val COL_MN = Color.parseColor("#00695C")
+
+    private fun statColor(name: String): Int {
+        if (name == "べんきょう") return COL_ST
+        if (name == "うんどう") return COL_SP
+        if (name == "にんき") return COL_PP
+        return COL_MN
+    }
+
+    /** 文章の なかの「べんきょう+3」などを いろ分けして ふとじに する。 */
+    private fun colorizeStats(text: String): CharSequence {
+        val sb = SpannableStringBuilder(text)
+        val names = arrayOf("べんきょう", "うんどう", "にんき", "おこづかい")
+        var n = 0
+        while (n < names.size) {
+            val name = names[n]
+            var from = 0
+            while (true) {
+                val at = text.indexOf(name, from)
+                if (at < 0) break
+                var end = at + name.length
+                // うしろに つづく 「+3」「-1200えん」「51」までを ふくめる
+                if (end < text.length && (text[end] == '+' || text[end] == '-')) end++
+                while (end < text.length && text[end] >= '0' && text[end] <= '9') end++
+                if (end + 1 < text.length && text.substring(end, end + 2) == "えん") end += 2
+                val col = statColor(name)
+                sb.setSpan(ForegroundColorSpan(col), at, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                sb.setSpan(StyleSpan(Typeface.BOLD), at, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                from = end
+            }
+            n++
+        }
+        return sb
+    }
+
     private fun deltaText(d: Delta): String {
         val sb = StringBuilder()
         if (d.st != 0) sb.append("べんきょう" + signed(d.st) + " ")
@@ -1037,6 +1084,11 @@ class MainActivity : Activity() {
     }
 
     private fun friendChara(p: Player, seed: Int): Chara? {
+        // こうこう・だいがくは、イベント用に かいた キャラを つかう
+        val key = stageKeyAt(p.pos)
+        if ((key == "high" || key == "univ") && eventCharas.isNotEmpty()) {
+            return eventCharas[Math.floorMod(seed, eventCharas.size)]
+        }
         if (charas.isEmpty()) return null
         val used = ArrayList<Chara>()
         var i = 0
@@ -1116,7 +1168,7 @@ class MainActivity : Activity() {
         }
 
         val tv = TextView(this)
-        tv.text = body
+        tv.text = colorizeStats(body)
         tv.textSize = 16f
         tv.setTextColor(Color.parseColor("#263238"))
         tv.setPadding(dpi(14f), dpi(12f), dpi(14f), dpi(12f))
@@ -1243,7 +1295,7 @@ class MainActivity : Activity() {
         }
         val names = Array<CharSequence>(playTypes.size) { n ->
             val t = playTypes[n]
-            t.icon + " " + t.name + "　" + t.text
+            colorizeStats(t.icon + " " + t.name + "　" + t.text)
         }
         val b = AlertDialog.Builder(this)
         b.setTitle(stageName + "：" + p.chara.name + " の すごしかた")
@@ -1275,6 +1327,14 @@ class MainActivity : Activity() {
                 w[t] = (w[t] ?: 1) + 3
             }
             i++
+        }
+        if (stage.key == "univ") {
+            val st = w["study"] ?: 0
+            val sp = w["sport"] ?: 0
+            val lv = w["love"] ?: 0
+            univBoardBg = if (sp > st && sp >= lv) "bg_stadium"
+            else if (lv > st && lv > sp) "bg_bay_night"
+            else "bg_campus_wide"
         }
         val rest = ArrayList<Cell>(pool.cells)
         val picked = ArrayList<Cell>()
@@ -1336,7 +1396,7 @@ class MainActivity : Activity() {
         val names = Array<CharSequence>(order.size) { n ->
             val c = order[n]
             val head = if (c === keep) "つづける　" else ""
-            head + c.icon + " " + c.name + "　" + deltaText(c.d)
+            colorizeStats(head + c.icon + " " + c.name + "　" + deltaText(c.d))
         }
         val b = AlertDialog.Builder(this)
         b.setTitle(stageName + "：" + p.chara.name + " の ぶかつを えらぼう")
@@ -2044,10 +2104,12 @@ class MainActivity : Activity() {
         private fun boardBgName(si: Int): String {
             if (si == 0) return "bg_park_day"
             if (si == 1) return "bg_nursery_gate"
-            if (si == 2) return "bg_schoolyard"
-            if (si == 3) return "bg_school_route"
-            if (si == 4) return "bg_highschool_day"
-            return "bg_town_crossing"
+            if (si == 2) return "bg_elem_road"
+            if (si == 3) return "bg_jhs_ground"
+            if (si == 4) return "bg_high_gate"
+            // だいがくは みんなが えらんだ すごしかたで けしきが かわる
+            if (univBoardBg.isNotEmpty()) return univBoardBg
+            return "bg_campus_wide"
         }
 
         private fun cellColor(type: String): Int {

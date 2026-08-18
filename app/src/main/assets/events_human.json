@@ -371,7 +371,7 @@
      "text": "さいごの さかで ひとりを ぬいた。",
      "sp": 4,
      "pp": 2,
-     "bg": "bg_school_route",
+     "bg": "bg_high_gate",
      "tag": "sport"
     },
     {
@@ -421,10 +421,10 @@
     {
      "type": "GOOD",
      "title": "だいがく にゅうがく",
-     "text": "にゅうがくしきの あと、じかんわりを じぶんで くんだ。",
+     "text": "にゅうがくしきの あと、ひろい キャンパスを あるいた。",
      "st": 3,
      "pp": 2,
-     "bg": "bg_ceremony_hall",
+     "bg": "bg_campus_wide",
      "tag": "study"
     },
     {
@@ -573,10 +573,10 @@
     },
     {
      "type": "LOVE",
-     "title": "よるの こうえん",
-     "text": "ベンチに すわって ながく はなした。",
+     "title": "よるの みなと",
+     "text": "はしの あかりが みずに うつっていた。",
      "tag": "love",
-     "bg": "bg_park_night"
+     "bg": "bg_bay_night"
     },
     {
      "type": "LOVE",
@@ -599,13 +599,13 @@
    "key": "sport",
    "name": "うんどうタイプ",
    "icon": "🏃",
-   "text": "うんどうの マスが ふえる。"
+   "text": "うんどうの マスが ふえる。だいがくは きゅうじょうが ぶたい。"
   },
   {
    "key": "love",
    "name": "こいタイプ",
    "icon": "💗",
-   "text": "デートと こいの マスが ふえる。"
+   "text": "デートと こいの マスが ふえて にんきも のびる。"
   },
   {
    "key": "balance",
@@ -1593,7 +1593,7 @@
     "pp": 1
    },
    "goal": "sports",
-   "bg": "bg_gym"
+   "bg": "bg_stadium"
   },
   {
    "i": 101,
@@ -2288,12 +2288,12 @@
    "i": 167,
    "type": "GOOD",
    "title": "だいがく にゅうがく",
-   "text": "にゅうがくしきの あと、じかんわりを じぶんで くんだ。",
+   "text": "にゅうがくしきの あと、ひろい キャンパスを あるいた。",
    "tag": "study",
    "swap": true,
    "st": 3,
    "pp": 2,
-   "bg": "bg_ceremony_hall"
+   "bg": "bg_campus_wide"
   },
   {
    "i": 168,
