@@ -146,6 +146,7 @@ random.seed(1)
 for _ in range(400):
     run(4)
 
+# じだいで もちものが かわる ため、mn の 合計は 目安（せいちょうP・にんきPも ふくむ）
 print("平均ルーレット回数(4人合計) = %.0f" % (sum(turns_used) / float(len(turns_used))))
 for k in ("st", "sp", "pp", "mn"):
     v = sorted(q[k] for q in finals)

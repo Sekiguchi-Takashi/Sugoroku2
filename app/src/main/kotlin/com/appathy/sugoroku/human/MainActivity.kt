@@ -73,7 +73,7 @@ class MainActivity : Activity() {
         val d: Delta, val move: Int, val rest: Int,
         val choices: List<Choice>, val ch: Challenge?, val love: Boolean,
         val goalKey: String, val bg: String, val deai: Boolean,
-        val tag: String, val swap: Boolean, val cast: List<String>
+        val tag: String, val swap: Boolean, val cast: List<String>, val grow: Boolean
     )
 
     // タイプ（べんきょう / うんどう / こい / バランス）
@@ -111,6 +111,10 @@ class MainActivity : Activity() {
         // ループステージ用。dir=+1 いき / -1 かえり、phase 0=いき 1=かえり 2=さいごの いき
         var dir = 1
         var phase = 2
+        // じだいで かわる もちもの。gp=せいちょうP / pop=にんきP / mn=おかね
+        var gp = 0
+        var pop = 0
+        val bought = HashMap<String, Int>()
         // こうかんど（あいての なまえ → 0..10）
         val aff = HashMap<String, Int>()
         var fightStreak = 0
@@ -383,7 +387,8 @@ class MainActivity : Activity() {
             o.optBoolean("deai", false),
             o.optString("tag", ""),
             o.optBoolean("swap", false),
-            readCast(o)
+            readCast(o),
+            o.optBoolean("grow", false)
         )
     }
 
@@ -648,6 +653,270 @@ class MainActivity : Activity() {
         p.phase = if (isLoop(stageKey)) 0 else 2
     }
 
+    // ---------------- ポイントの ひきつぎ ----------------
+
+    /** ポイントを 3つの ステータスへ わける がめん。 */
+    private fun showDistribute(title: String, note: String, p: Player, points: Int, after: () -> Unit) {
+        if (points <= 0) {
+            after()
+            return
+        }
+        if (p.cpu) {
+            var rest = points
+            while (rest > 0) {
+                val k = Random.nextInt(3)
+                if (k == 0) p.st++ else if (k == 1) p.sp++ else p.pp++
+                rest--
+            }
+            updateStats()
+            log(p.chara.name + " は " + points + "ポイントを わけた")
+            handler.postDelayed({ after() }, Speed.eventWaitMs)
+            return
+        }
+
+        val add = intArrayOf(0, 0, 0)
+        var rest = points
+
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        box.setPadding(dpi(14f), dpi(10f), dpi(14f), dpi(10f))
+
+        val head = TextView(this)
+        head.textSize = 14f
+        head.setTextColor(Color.parseColor("#52616B"))
+        head.text = note
+        box.addView(head)
+
+        val restView = TextView(this)
+        restView.textSize = 20f
+        restView.setTypeface(Typeface.DEFAULT_BOLD)
+        restView.setTextColor(Color.parseColor("#33691E"))
+        restView.setPadding(0, dpi(6f), 0, dpi(6f))
+        box.addView(restView)
+
+        val rows = arrayOfNulls<TextView>(3)
+        val statNames = arrayOf("べんきょう", "うんどう", "にんき")
+        val base = intArrayOf(p.st, p.sp, p.pp)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(ScrollView(this).also { it.addView(box) })
+            .setCancelable(false)
+            .create()
+
+        val refresh = { ->
+            restView.text = "のこり " + rest + " ポイント"
+            var i = 0
+            while (i < 3) {
+                rows[i]?.text = colorizeStats(statNames[i] + (base[i] + add[i]) + "　（+" + add[i] + "）")
+                i++
+            }
+        }
+
+        var i = 0
+        while (i < 3) {
+            val idx = i
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+
+            val tv = TextView(this)
+            tv.textSize = 16f
+            rows[idx] = tv
+            row.addView(tv, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+            val minus = styledButton("−", 16f, Color.parseColor("#90A4AE"))
+            minus.setOnClickListener {
+                if (add[idx] > 0) {
+                    add[idx]--
+                    rest++
+                    refresh()
+                }
+            }
+            row.addView(minus, LinearLayout.LayoutParams(dpi(48f), ViewGroup.LayoutParams.WRAP_CONTENT))
+
+            val plus = styledButton("＋1", 16f, Color.parseColor("#4CAF50"))
+            plus.setOnClickListener {
+                if (rest > 0) {
+                    add[idx]++
+                    rest--
+                    refresh()
+                }
+            }
+            val plp = LinearLayout.LayoutParams(dpi(56f), ViewGroup.LayoutParams.WRAP_CONTENT)
+            plp.leftMargin = dpi(4f)
+            row.addView(plus, plp)
+
+            val plus5 = styledButton("＋5", 16f, Color.parseColor("#2E7D32"))
+            plus5.setOnClickListener {
+                var n = 5
+                while (n > 0 && rest > 0) {
+                    add[idx]++
+                    rest--
+                    n--
+                }
+                refresh()
+            }
+            val p5lp = LinearLayout.LayoutParams(dpi(56f), ViewGroup.LayoutParams.WRAP_CONTENT)
+            p5lp.leftMargin = dpi(4f)
+            row.addView(plus5, p5lp)
+
+            val rlp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            rlp.topMargin = dpi(8f)
+            box.addView(row, rlp)
+            i++
+        }
+
+        val ok = styledButton("これで きめる", 18f, Color.parseColor("#FF9800"))
+        ok.setOnClickListener {
+            if (rest > 0) {
+                restView.text = "のこり " + rest + " ポイント（ぜんぶ つかってね）"
+                return@setOnClickListener
+            }
+            p.st += add[0]
+            p.sp += add[1]
+            p.pp += add[2]
+            updateStats()
+            dialog.dismiss()
+            after()
+        }
+        val olp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        olp.topMargin = dpi(14f)
+        box.addView(ok, olp)
+
+        refresh()
+        dialog.show()
+    }
+
+    private val POP_TO_MONEY = 200
+
+    /** ステージが かわる ときの ひきつぎ。ほいくえん→しょうがっこう と ちゅうがっこう→こうこう。 */
+    private fun handOver(index: Int, fromKey: String, after: () -> Unit) {
+        if (index >= players.size) {
+            updateStats()
+            after()
+            return
+        }
+        val p = players[index]
+        val next = { handOver(index + 1, fromKey, after) }
+
+        if (fromKey == "kinder") {
+            val pts = p.gp
+            p.gp = 0
+            if (pts <= 0) {
+                next()
+                return
+            }
+            showDistribute(
+                p.chara.name + " の せいちょう",
+                "ほいくえんで ためた せいちょうポイントを、3つに わけよう。",
+                p, pts
+            ) { next() }
+            return
+        }
+
+        if (fromKey == "jhs") {
+            val pts = p.pop
+            p.pop = 0
+            if (pts <= 0) {
+                next()
+                return
+            }
+            if (p.cpu) {
+                if (Random.nextInt(2) == 0) {
+                    p.mn += pts * POP_TO_MONEY
+                    updateStats()
+                    log(p.chara.name + " は にんきPを おかねに かえた")
+                    handler.postDelayed(next, Speed.eventWaitMs)
+                } else {
+                    showDistribute("", "", p, pts) { next() }
+                }
+                return
+            }
+            val items = ArrayList<PickItem>()
+            items.add(PickItem("ステータスに わける", colorizeStats(
+                "べんきょう・うんどう・にんき に すきなだけ わけられる（" + pts + "ポイント）")))
+            items.add(PickItem("おかねに かえる", colorizeStats(
+                "おこづかい+" + (pts * POP_TO_MONEY) + "えん になる")))
+            showPicker(p.chara.name + "：にんきP " + pts + " を どうする？", null, items) { which ->
+                if (which == 0) {
+                    showDistribute(
+                        p.chara.name + " の にんき",
+                        "ちゅうがっこうまでに ためた にんきポイントを わけよう。",
+                        p, pts
+                    ) { next() }
+                } else {
+                    p.mn += pts * POP_TO_MONEY
+                    updateStats()
+                    message("おかねに かえた", "にんきP " + pts + " を おこづかい " +
+                            (pts * POP_TO_MONEY) + "えん に かえた。") { next() }
+                }
+            }
+            return
+        }
+        next()
+    }
+
+    // ---------------- ショップ（こうこう・だいがく）----------------
+
+    class ShopItem(val key: String, val name: String, val stat: String, val gain: Int, val price: Int)
+
+    private val shopItems = listOf(
+        ShopItem("book", "📗 さんこうしょ", "st", 4, 1200),
+        ShopItem("protein", "🥤 プロテイン", "sp", 4, 1200),
+        ShopItem("clothes", "👕 おしゃれな ふく", "pp", 4, 1500)
+    )
+
+    private fun shopPrice(p: Player, it: ShopItem): Int {
+        val n = p.bought[it.key] ?: 0
+        return it.price + n * 600
+    }
+
+    private fun showShop() {
+        val p = players[turn]
+        if (eraOf(p.pos) != "money") {
+            AlertDialog.Builder(this).setTitle("ショップ")
+                .setMessage("こうこうに なってから つかえるよ。")
+                .setPositiveButton("とじる", null).show()
+            return
+        }
+        val items = ArrayList<PickItem>()
+        var i = 0
+        while (i < shopItems.size) {
+            val it = shopItems[i]
+            items.add(PickItem(
+                it.name + "　" + shopPrice(p, it) + "えん",
+                colorizeStats(statLabel(it.stat) + "+" + it.gain +
+                        "　いま おこづかい" + p.mn + "えん")))
+            i++
+        }
+        items.add(PickItem("かわない", "なにも かわずに とじる"))
+        showPicker(p.chara.name + " の ショップ", null, items) { which ->
+            if (which >= shopItems.size) return@showPicker
+            val it = shopItems[which]
+            val price = shopPrice(p, it)
+            if (p.mn < price) {
+                AlertDialog.Builder(this).setTitle("おかねが たりない")
+                    .setMessage(colorizeStats("おこづかい" + p.mn + "えん では かえない。"))
+                    .setPositiveButton("とじる", null).show()
+                return@showPicker
+            }
+            p.mn -= price
+            p.bought[it.key] = (p.bought[it.key] ?: 0) + 1
+            if (it.stat == "st") p.st += it.gain
+            else if (it.stat == "sp") p.sp += it.gain
+            else p.pp += it.gain
+            updateStats()
+            AlertDialog.Builder(this).setTitle(it.name)
+                .setMessage(colorizeStats(
+                    "かった！ " + statLabel(it.stat) + "+" + it.gain +
+                            "　おこづかい-" + price + "えん"))
+                .setPositiveButton("OK", null).show()
+        }
+    }
+
     private fun showTitle() {
         val root = column()
         root.setBackgroundColor(Color.parseColor("#FFF6E5"))
@@ -857,6 +1126,7 @@ class MainActivity : Activity() {
     private var statusText2: TextView? = null
     private var speedButton: Button? = null
     private var zoomButton: Button? = null
+    private var shopButton: Button? = null
     private var startButton: Button? = null
 
     private fun updateSpeedLabel() {
@@ -870,6 +1140,7 @@ class MainActivity : Activity() {
         turn = 0
         goalCount = 0
         univBoardBg = ""
+        growTaken.clear()
         logs.clear()
 
         val root = LinearLayout(this)
@@ -984,6 +1255,14 @@ class MainActivity : Activity() {
         slp.topMargin = dpi(12f)
         buttonCol.addView(stbtn, slp)
 
+        val shopBtn = styledButton("🛒 ショップ", 15f, Color.parseColor("#7B1FA2"))
+        shopBtn.setOnClickListener { showShop() }
+        shopButton = shopBtn
+        val shlp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        shlp.topMargin = dpi(8f)
+        buttonCol.addView(shopBtn, shlp)
+
         controlRow.addView(buttonCol, LinearLayout.LayoutParams(
             0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(controlRow)
@@ -1016,8 +1295,11 @@ class MainActivity : Activity() {
             val p = players[i]
             val who = if (p.cpu) "（CPU）" else "（" + (i + 1) + "P）"
             sb.append(p.chara.name).append(who).append("\n")
+            val era = eraOf(p.pos)
             sb.append("  べんきょう").append(p.st).append("　うんどう").append(p.sp)
-            sb.append("　にんき").append(p.pp).append("　おこづかい").append(p.mn).append("えん\n")
+            sb.append("　にんき").append(p.pp).append("\n")
+            sb.append("  ").append(eraLabel(era)).append(eraValue(p, era)).append(eraUnit(era))
+            sb.append("\n")
             val cb = p.club
             if (cb != null) sb.append("  ").append(cb.icon).append(cb.name).append("\n")
             val mt = p.partner
@@ -1049,8 +1331,9 @@ class MainActivity : Activity() {
         if (me.goals.size > 0) extra = extra + "　★" + me.goals.size
         val cb = me.club
         if (cb != null) extra = "　" + cb.icon + cb.name + extra
+        val era = eraOf(me.pos)
         val line = me.chara.name + tag + "　べんきょう" + me.st + " うんどう" + me.sp +
-                " にんき" + me.pp + " おこづかい" + me.mn + "えん" + extra
+                " にんき" + me.pp + " " + eraLabel(era) + eraValue(me, era) + eraUnit(era) + extra
         bar.text = colorizeStats(line, true)
     }
 
@@ -1083,6 +1366,10 @@ class MainActivity : Activity() {
                 cells.size + "マス）"
         startButton?.isEnabled = !p.cpu
         startButton?.alpha = if (p.cpu) 0.4f else 1f
+        eraNow = eraOf(p.pos)
+        val canShop = !p.cpu && eraNow == "money"
+        shopButton?.isEnabled = canShop
+        shopButton?.alpha = if (canShop) 1f else 0.35f
         boardView?.turnIndex = turn
         updateStats()
     }
@@ -1161,11 +1448,61 @@ class MainActivity : Activity() {
         handler.postDelayed({ stepMove(p, remain - 1) }, Speed.stepMs)
     }
 
+    // ---------------- じだいごとの もちもの ----------------
+    // あかちゃん・ほいくえん = せいちょうポイント / しょうがっこう・ちゅうがっこう = にんきポイント
+    // こうこう・だいがく = おかね
+    private fun eraOf(pos: Int): String {
+        val k = stageKeyAt(pos)
+        if (k == "baby" || k == "kinder") return "grow"
+        if (k == "elem" || k == "jhs") return "pop"
+        return "money"
+    }
+
+    private var eraNow = "grow"
+
+    private fun eraLabel(era: String): String {
+        if (era == "grow") return "せいちょうP"
+        if (era == "pop") return "にんきP"
+        return "おこづかい"
+    }
+
+    private fun eraUnit(era: String): String = if (era == "money") "えん" else ""
+
+    /** おこづかいの 数字は けたが 大きいので、にんきPには 400えん=1ポイントで なおす。 */
+    private fun popFromMoney(mn: Int): Int {
+        if (mn > 0) return (mn + 399) / 400
+        if (mn < 0) return -((-mn + 399) / 400)
+        return 0
+    }
+
+    private fun eraValue(p: Player, era: String): Int {
+        if (era == "grow") return p.gp
+        if (era == "pop") return p.pop
+        return p.mn
+    }
+
+    private fun addEra(p: Player, era: String, v: Int) {
+        if (era == "grow") {
+            p.gp += v
+            if (p.gp < 0) p.gp = 0
+        } else if (era == "pop") {
+            p.pop += v
+            if (p.pop < 0) p.pop = 0
+        } else {
+            p.mn += v
+        }
+    }
+
     private fun applyDelta(p: Player, d: Delta) {
         p.st += d.st
         p.sp += d.sp
         p.pp += d.pp
-        p.mn += d.mn
+        // おこづかいの ぶんは、その じだいの もちものに はいる。
+        // あかちゃん・ほいくえんは せいちょうマスだけが ポイントに なるので、ここでは たさない
+        val era = eraOf(p.pos)
+        if (d.mn != 0 && era == "money") addEra(p, era, d.mn)
+        // にんきPは おかねより けたが 小さいので 400えん = 1ポイント に する
+        if (d.mn != 0 && era == "pop") addEra(p, era, popFromMoney(d.mn))
         if (p.st < 0) p.st = 0
         if (p.sp < 0) p.sp = 0
         if (p.pp < 0) p.pp = 0
@@ -1184,10 +1521,14 @@ class MainActivity : Activity() {
     private val COL_PP_D = Color.parseColor("#FF8A80")
     private val COL_MN_D = Color.parseColor("#80CBC4")
 
+    private val COL_GP = Color.parseColor("#6A1B9A")
+    private val COL_GP_D = Color.parseColor("#CE93D8")
+
     private fun statColor(name: String, onDark: Boolean): Int {
         if (name == "べんきょう") return if (onDark) COL_ST_D else COL_ST
         if (name == "うんどう") return if (onDark) COL_SP_D else COL_SP
-        if (name == "にんき") return if (onDark) COL_PP_D else COL_PP
+        if (name == "せいちょうP") return if (onDark) COL_GP_D else COL_GP
+        if (name == "にんきP" || name == "にんき") return if (onDark) COL_PP_D else COL_PP
         return if (onDark) COL_MN_D else COL_MN
     }
 
@@ -1196,7 +1537,7 @@ class MainActivity : Activity() {
 
     private fun colorizeStats(text: String, onDark: Boolean): CharSequence {
         val sb = SpannableStringBuilder(text)
-        val names = arrayOf("べんきょう", "うんどう", "にんき", "おこづかい")
+        val names = arrayOf("べんきょう", "うんどう", "にんきP", "せいちょうP", "にんき", "おこづかい")
         var n = 0
         while (n < names.size) {
             val name = names[n]
@@ -1224,7 +1565,11 @@ class MainActivity : Activity() {
         if (d.st != 0) sb.append("べんきょう" + signed(d.st) + " ")
         if (d.sp != 0) sb.append("うんどう" + signed(d.sp) + " ")
         if (d.pp != 0) sb.append("にんき" + signed(d.pp) + " ")
-        if (d.mn != 0) sb.append("おこづかい" + signed(d.mn) + "えん")
+        if (d.mn != 0 && eraNow == "money") sb.append("おこづかい" + signed(d.mn) + "えん")
+        if (d.mn != 0 && eraNow == "pop") {
+            val v = popFromMoney(d.mn)
+            if (v != 0) sb.append("にんきP" + signed(v))
+        }
         return sb.toString().trim()
     }
 
@@ -1367,7 +1712,11 @@ class MainActivity : Activity() {
 
     private var castNow: List<Chara> = ArrayList()
 
-    private fun message(title: String, body: String, after: () -> Unit) {
+    private var pendingBonus = ""
+
+    private fun message(title: String, bodyIn: String, after: () -> Unit) {
+        val body = bodyIn + pendingBonus
+        pendingBonus = ""
         val p = players[turn]
         if (p.cpu) {
             log("[" + title + "] " + body.replace("\n", " "))
@@ -1448,15 +1797,22 @@ class MainActivity : Activity() {
         boardView?.focus(to)
         boardView?.invalidate()
         updateStatus()
-        // ちゅうがっこう いこうは、ステージに はいったら ぜんいんが ぶかつを えらぶ
-        if (clubs.isEmpty() || !clubStages.contains(stages[next].key)) {
-            after()
-            return
-        }
-        askClub(0, stages[next].name) {
-            askType(0, stages[next].name) {
-                rearrange(stages[next])
+        // ひきつぎ（ポイントの わりふり）→ ちゅうがっこう いこうは ぶかつ・すごしかた
+        afterWarp(stages[fromStage].key, next, after)
+    }
+
+    /** ステージが かわる ときに よぶ。ひきつぎ → ぶかつ → すごしかた の じゅん。 */
+    private fun afterWarp(fromKey: String, next: Int, after: () -> Unit) {
+        handOver(0, fromKey) {
+            if (clubs.isEmpty() || !clubStages.contains(stages[next].key)) {
                 after()
+                return@handOver
+            }
+            askClub(0, stages[next].name) {
+                askType(0, stages[next].name) {
+                    rearrange(stages[next])
+                    after()
+                }
             }
         }
     }
@@ -1870,11 +2226,77 @@ class MainActivity : Activity() {
         }
     }
 
+    // せいちょうマスに なんばんめに ついたか（マス番号 → もう ついた 人数）
+    private val growTaken = HashMap<Int, Int>()
+
+    /** 1ばん=5 / 2ばん=3 / 3ばん=1 / 4ばんめ いこう=0 */
+    private fun growPointsFor(cellIndex: Int): Int {
+        val n = growTaken[cellIndex] ?: 0
+        growTaken[cellIndex] = n + 1
+        if (n == 0) return 5
+        if (n == 1) return 3
+        if (n == 2) return 1
+        return 0
+    }
+
+    /** 3つの ステータスの うち、いくつ 1ばんか（どうてん1いも 1ばんと する） */
+    private fun topStatCount(p: Player): Int {
+        var c = 0
+        var maxSt = 0
+        var maxSp = 0
+        var maxPp = 0
+        var i = 0
+        while (i < players.size) {
+            if (players[i].st > maxSt) maxSt = players[i].st
+            if (players[i].sp > maxSp) maxSp = players[i].sp
+            if (players[i].pp > maxPp) maxPp = players[i].pp
+            i++
+        }
+        if (p.st >= maxSt) c++
+        if (p.sp >= maxSp) c++
+        if (p.pp >= maxPp) c++
+        return c
+    }
+
+    /** そのマスで もらえる ボーナスの 文章。なければ からっぽ。 */
+    private fun eraBonus(p: Player, cell: Cell): String {
+        val era = eraOf(p.pos)
+        if (era == "grow") {
+            if (!cell.grow) return ""
+            val v = growPointsFor(cell.i)
+            if (v <= 0) {
+                return "\n\nもう みんなが きた あとだった。せいちょうP+0"
+            }
+            addEra(p, "grow", v)
+            updateStats()
+            val order = growTaken[cell.i] ?: 1
+            return "\n\n" + order + "ばんめに とうちゃく！ せいちょうP+" + v
+        }
+        if (era == "pop") {
+            val n = topStatCount(p)
+            if (n <= 0) return ""
+            val v = if (n >= 3) 3 else 1
+            addEra(p, "pop", v)
+            updateStats()
+            val head = if (n >= 3) "3つとも 1ばん！ " else "ステータスが 1ばん！ "
+            return "\n\n" + head + "にんきP+" + v
+        }
+        return ""
+    }
+
     private fun onLanded(p: Player, allowChain: Boolean) {
         val cell = cells[p.pos]
         currentBg = cell.bg
         castNow = castOf(p, cell)
         boardView?.invalidate()
+
+        // じだいごとの ボーナスは、イベントの ダイアログの さいごに くっつける
+        pendingBonus = ""
+        val plain = cell.type == "NORMAL" && cell.d.st == 0 && cell.d.sp == 0 &&
+                cell.d.pp == 0 && cell.d.mn == 0 && cell.move == 0 && cell.rest == 0
+        if (!plain && cell.type != "START" && cell.type != "STAGEGOAL" && cell.type != "GOAL") {
+            pendingBonus = eraBonus(p, cell)
+        }
 
         // ループステージの おりかえし。ゴールに ついても すぐには おわらない
         val key = stageKeyAt(p.pos)
@@ -2105,13 +2527,24 @@ class MainActivity : Activity() {
 
     // ---------------- けっか ----------------
 
-    private fun score(p: Player): Int {
-        var v = p.st * 3 + p.sp * 3 + p.pp * 3 + p.mn / 200
-        if (p.partner != null) v += 15
-        v += p.goals.size * 20
-        v += p.stageWins * 10
+    private val STAT_TO_MONEY = 300
+    private val GOAL_MONEY = 5000
+    private val PARTNER_MONEY = 4000
+    private val STAGEWIN_MONEY = 2000
+
+    /** さいごは ぜんぶ おかねに かえて じゅんいを きめる。 */
+    private fun totalMoney(p: Player): Int {
+        var v = p.mn
+        v += (p.st + p.sp + p.pp) * STAT_TO_MONEY
+        v += p.gp * STAT_TO_MONEY
+        v += p.pop * POP_TO_MONEY
+        if (p.partner != null) v += PARTNER_MONEY
+        v += p.goals.size * GOAL_MONEY
+        v += p.stageWins * STAGEWIN_MONEY
         return v
     }
+
+    private fun score(p: Player): Int = totalMoney(p)
 
     private fun endingOf(p: Player): Ending {
         var key = "st"
@@ -2124,7 +2557,7 @@ class MainActivity : Activity() {
             best = p.pp
             key = "pp"
         }
-        if (p.mn / 200 > best) {
+        if (p.mn / 400 > best) {
             key = "mn"
         }
         var i = 0
@@ -2158,14 +2591,18 @@ class MainActivity : Activity() {
             col.orientation = LinearLayout.VERTICAL
             col.setPadding(dpi(10f), 0, 0, 0)
             val e = endingOf(p)
-            val t1 = label(rank.toString() + "い　" + p.chara.name + "　" + score(p) + "てん", 17f, Color.parseColor("#2F3E46"))
+            val t1 = label(rank.toString() + "い　" + p.chara.name + "　" + totalMoney(p) + "えん",
+                17f, Color.parseColor("#2F3E46"))
             t1.gravity = Gravity.LEFT
             t1.setTypeface(Typeface.DEFAULT_BOLD)
-            val t2 = label(
-                "べんきょう" + p.st + " / うんどう" + p.sp + " / にんき" + p.pp + " / ¥" + p.mn,
-                12f, Color.parseColor("#52616B")
-            )
+            val t2 = TextView(this)
+            t2.textSize = 12f
+            t2.text = colorizeStats(
+                "のこった おこづかい" + p.mn + "えん\n" +
+                        "べんきょう" + p.st + " うんどう" + p.sp + " にんき" + p.pp +
+                        " → " + ((p.st + p.sp + p.pp) * STAT_TO_MONEY) + "えん ぶん")
             t2.gravity = Gravity.LEFT
+            t2.setTextColor(Color.parseColor("#52616B"))
             val t3 = label("【" + e.title + "】" + e.text, 13f, Color.parseColor("#6B705C"))
             t3.gravity = Gravity.LEFT
             col.addView(t1)
@@ -2431,7 +2868,8 @@ class MainActivity : Activity() {
                 fillPaint.color = cellColor(c.type)
                 canvas.drawCircle(x, laneY, cellR, fillPaint)
                 canvas.drawCircle(x, laneY, cellR, edgePaint)
-                val sym = symbolOf(c.type)
+                var sym = symbolOf(c.type)
+                if (c.grow && (growTaken[i] ?: 0) < 3) sym = "🌱"
                 val lbl = if (sym == "") (i + 1).toString() else sym
                 canvas.drawText(lbl, x, laneY + textPaint.textSize / 3, textPaint)
                 i++

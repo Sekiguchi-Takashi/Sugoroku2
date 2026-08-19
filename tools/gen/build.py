@@ -195,13 +195,26 @@ for st in stages:
         if r:
             cells[j]["cast"] = r
 
+# ---- せいちょうマス（あかちゃん・ほいくえん）----
+# さきに ついた 人ほど たくさん せいちょうポイントを もらえる マス。
+GROW_TITLES = (
+    "はじめての あんよ", "えほん", "1さいの たんじょうび",
+    "ほいくしつの じゆうあそび", "えんそく（どうぶつえん）", "なわとび", "プールあそび",
+)
+for c in cells:
+    if c.get("title") in GROW_TITLES:
+        c["grow"] = True
+n_grow = sum(1 for c in cells if c.get("grow"))
+if n_grow != len(GROW_TITLES):
+    raise SystemExit("せいちょうマスの タイトルが あわない (%d / %d)" % (n_grow, len(GROW_TITLES)))
+
 ordered = []
 for c in cells:
     o = collections.OrderedDict()
     o["i"] = c["i"]
     o["type"] = c["type"]
     for k in ("title", "text", "stat", "need", "okText", "ngText", "ok", "ng",
-              "choices", "goal", "love", "deai", "tag", "swap", "cast",
+              "choices", "goal", "love", "deai", "tag", "swap", "cast", "grow",
               "st", "sp", "pp", "mn", "move", "rest", "bg"):
         if k in c:
             o[k] = c[k]
