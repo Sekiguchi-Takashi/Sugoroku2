@@ -108,6 +108,9 @@ class MainActivity : Activity() {
         var stageWins = 0
         var club: Club? = null
         var type = ""
+        // ループステージ用。dir=+1 いき / -1 かえり、phase 0=いき 1=かえり 2=さいごの いき
+        var dir = 1
+        var phase = 2
         // こうかんど（あいての なまえ → 0..10）
         val aff = HashMap<String, Int>()
         var fightStreak = 0
@@ -151,6 +154,8 @@ class MainActivity : Activity() {
     private val pools = HashMap<String, Pool>()
     // だいがくの 盤面背景（すごしかたの とうひょうで きまる）
     private var univBoardBg = ""
+    // ループステージの オン・オフ（ステージkey → true）。タイトル画面で きりかえる
+    private val loopOn = HashMap<String, Boolean>()
 
     private var players: MutableList<Player> = ArrayList()
     private var turn = 0
@@ -324,6 +329,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         loadData()
+        loadLoopSettings()
         showTitle()
     }
 
@@ -563,6 +569,85 @@ class MainActivity : Activity() {
 
     // ---------------- タイトル ----------------
 
+    // ---------------- ループステージ ----------------
+
+    private fun loopPrefs() = getSharedPreferences("sugoroku_human", Context.MODE_PRIVATE)
+
+    private fun loadLoopSettings() {
+        val pr = loopPrefs()
+        loopOn.clear()
+        var i = 0
+        while (i < stages.size) {
+            val k = stages[i].key
+            loopOn[k] = pr.getBoolean("loop_" + k, false)
+            i++
+        }
+    }
+
+    private fun isLoop(stageKey: String): Boolean = loopOn[stageKey] == true
+
+    private fun setLoop(stageKey: String, on: Boolean) {
+        loopOn[stageKey] = on
+        loopPrefs().edit().putBoolean("loop_" + stageKey, on).apply()
+    }
+
+    /** 各世代ごとに オン・オフ。オンの ステージは ゴール→スタート→ゴール の 3回わたり。 */
+    private fun showLoopSettings() {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        box.setPadding(dpi(14f), dpi(10f), dpi(14f), dpi(10f))
+
+        val note = TextView(this)
+        note.text = "オンに すると、ゴールに ついても おりかえして スタートまで もどり、" +
+                "もういちど ゴールを めざします。イベントは たくさん おきますが、" +
+                "その せだいだけで ルーレットの かいすうが 3ばいに なります。"
+        note.textSize = 13f
+        note.setTextColor(Color.parseColor("#52616B"))
+        note.setPadding(0, 0, 0, dpi(8f))
+        box.addView(note)
+
+        var i = 0
+        while (i < stages.size) {
+            val st = stages[i]
+            val b = styledButton("", 17f, Color.parseColor("#4CAF50"))
+            val paint = { ->
+                val on = isLoop(st.key)
+                b.text = (if (on) "🔁 オン　" else "▶ オフ　") + st.name
+                b.background = roundedBg(
+                    if (on) Color.parseColor("#F57C00") else Color.parseColor("#9E9E9E"))
+            }
+            paint()
+            b.setOnClickListener {
+                setLoop(st.key, !isLoop(st.key))
+                paint()
+            }
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            lp.topMargin = dpi(6f)
+            box.addView(b, lp)
+            i++
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("ループステージ")
+            .setView(ScrollView(this).also { it.addView(box) })
+            .setPositiveButton("とじる", null)
+            .show()
+    }
+
+    private fun loopLabel(p: Player): String {
+        val key = stageKeyAt(p.pos)
+        if (!isLoop(key)) return ""
+        if (p.phase == 0) return "🔁 いき ▶"
+        if (p.phase == 1) return "🔁 かえり ◀"
+        return "🔁 さいごの いき ▶"
+    }
+
+    private fun resetLoopState(p: Player, stageKey: String) {
+        p.dir = 1
+        p.phase = if (isLoop(stageKey)) 0 else 2
+    }
+
     private fun showTitle() {
         val root = column()
         root.setBackgroundColor(Color.parseColor("#FFF6E5"))
@@ -591,6 +676,7 @@ class MainActivity : Activity() {
         root.addView(row)
 
         root.addView(bigButton("はじめる") { showModeSelect() })
+        root.addView(bigButton("ループステージ") { showLoopSettings() })
         root.addView(bigButton("あそびかた") { showHelp() })
         setContentView(root)
     }
@@ -913,6 +999,11 @@ class MainActivity : Activity() {
         root.addView(sb)
 
         setContentView(root)
+        var i = 0
+        while (i < players.size) {
+            resetLoopState(players[i], if (stages.isEmpty()) "" else stages[0].key)
+            i++
+        }
         updateStats()
         log("ゲームスタート！")
         beginTurn()
@@ -984,9 +1075,12 @@ class MainActivity : Activity() {
         val p = players[turn]
         val who = if (p.cpu) "CPU" else (turn + 1).toString() + "P"
         val si = stageIndexAt(p.pos)
-        statusText?.text = "ステージ" + (si + 1) + "/" + stages.size + "「" + stageName(p.pos) + "」\n" +
-                "🟢いいこと 🟣わるいこと 🟠ワープ 🔴ちょうせん\n🩷こくはく 🟡ステージゴール 🔵ぶかつ"
-        statusText2?.text = who + "・" + p.chara.name + " の ばん（" + (p.pos + 1) + " / " + cells.size + "マス）"
+        val lpTag = loopLabel(p)
+        statusText?.text = "ステージ" + (si + 1) + "/" + stages.size + "「" + stageName(p.pos) + "」" +
+                (if (lpTag.isEmpty()) "" else "　" + lpTag) + "\n" +
+                "🟢いいこと 🟣わるいこと 🟠ワープ 🔴ちょうせん\n☕デート 💞こい 🟡ステージゴール 🔵ぶかつ"
+        statusText2?.text = who + "・" + p.chara.name + " の ばん（" + (p.pos + 1) + " / " +
+                cells.size + "マス）"
         startButton?.isEnabled = !p.cpu
         startButton?.alpha = if (p.cpu) 0.4f else 1f
         boardView?.turnIndex = turn
@@ -1043,12 +1137,24 @@ class MainActivity : Activity() {
         return stages[si].to
     }
 
+    private fun stageStart(pos: Int): Int {
+        val si = stageIndexAt(pos)
+        if (stages.isEmpty()) return 0
+        return stages[si].from
+    }
+
+    /** すすめる さきが あるか。かえり中は スタートの ほうが かべに なる。 */
+    private fun canStep(p: Player): Boolean {
+        if (p.dir < 0) return p.pos > stageStart(p.pos)
+        return p.pos < cells.size - 1 && p.pos < stageLimit(p.pos)
+    }
+
     private fun stepMove(p: Player, remain: Int) {
-        if (remain <= 0 || p.pos >= cells.size - 1 || p.pos >= stageLimit(p.pos)) {
+        if (remain <= 0 || !canStep(p)) {
             handler.postDelayed({ onLanded(p, true) }, 150)
             return
         }
-        p.pos++
+        p.pos += p.dir
         boardView?.focus(p.pos)
         boardView?.invalidate()
         updateStatus()
@@ -1331,10 +1437,12 @@ class MainActivity : Activity() {
             return
         }
         val to = stages[next].from
+        val nextKey = stages[next].key
         var i = 0
         while (i < players.size) {
             players[i].pos = to
             players[i].rest = 0
+            resetLoopState(players[i], nextKey)
             i++
         }
         boardView?.focus(to)
@@ -1768,6 +1876,31 @@ class MainActivity : Activity() {
         castNow = castOf(p, cell)
         boardView?.invalidate()
 
+        // ループステージの おりかえし。ゴールに ついても すぐには おわらない
+        val key = stageKeyAt(p.pos)
+        if (isLoop(key)) {
+            if (p.phase == 0 && p.pos >= stageLimit(p.pos)) {
+                p.phase = 1
+                p.dir = -1
+                updateStatus()
+                message("おりかえし！", stageName(p.pos) + " の ゴールに ついた。\n" +
+                        "ここから スタートの ほうへ もどる。\n🔁 かえり ◀") {
+                    afterCell(p, cell, false)
+                }
+                return
+            }
+            if (p.phase == 1 && p.pos <= stageStart(p.pos)) {
+                p.phase = 2
+                p.dir = 1
+                updateStatus()
+                message("スタートに もどった！", "もういちど ゴールを めざそう。\n" +
+                        "つぎに ついたら ステージクリア。\n🔁 さいごの いき ▶") {
+                    afterCell(p, cell, false)
+                }
+                return
+            }
+        }
+
         if (cell.type == "STAGEGOAL") {
             val si = stageIndexAt(p.pos)
             p.stageWins++
@@ -1898,7 +2031,8 @@ class MainActivity : Activity() {
             return
         }
         if (cell.move != 0 && allowChain) {
-            val to = clampStage(p.pos, p.pos + cell.move)
+            // かえり中の ワープは スタートの ほうへ すすむ
+            val to = clampStage(p.pos, p.pos + cell.move * p.dir)
             handler.postDelayed({ slideTo(p, to) }, 250)
             return
         }
@@ -2080,6 +2214,8 @@ class MainActivity : Activity() {
         private val mapEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val mapLinePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val mapCellPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val arrowEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         private var bounce = 0f
         private val bounceAnim = ValueAnimator.ofFloat(0f, (Math.PI * 2).toFloat())
@@ -2102,6 +2238,13 @@ class MainActivity : Activity() {
             mapLinePaint.color = Color.parseColor("#C9A66B")
             mapLinePaint.strokeWidth = dp(2f)
             mapLinePaint.strokeCap = Paint.Cap.ROUND
+            arrowPaint.color = Color.parseColor("#F57C00")
+            arrowPaint.textAlign = Paint.Align.CENTER
+            arrowPaint.setTypeface(Typeface.DEFAULT_BOLD)
+            arrowEdgePaint.color = Color.WHITE
+            arrowEdgePaint.style = Paint.Style.STROKE
+            arrowEdgePaint.textAlign = Paint.Align.CENTER
+            arrowEdgePaint.setTypeface(Typeface.DEFAULT_BOLD)
 
             bounceAnim.duration = 900
             bounceAnim.repeatCount = ValueAnimator.INFINITE
@@ -2348,6 +2491,17 @@ class MainActivity : Activity() {
                         canvas.drawBitmap(b, null, RectF(
                             cx + pieceDx - sz / 2, baseY - sz - lift,
                             cx + pieceDx + sz / 2, baseY - lift), null)
+                        // ループステージ中は、手番のコマの うえに すすむ むきを だす
+                        if (isTurn && isLoop(stageKeyAt(pl.pos))) {
+                            val ar = if (pl.dir < 0) "◀" else "▶"
+                            val ax = cx + pieceDx
+                            val ay = baseY - sz - lift - cellR * 0.45f
+                            arrowPaint.textSize = cellR * 1.15f
+                            arrowEdgePaint.textSize = cellR * 1.15f
+                            arrowEdgePaint.strokeWidth = dp(4f)
+                            canvas.drawText(ar, ax, ay, arrowEdgePaint)
+                            canvas.drawText(ar, ax, ay, arrowPaint)
+                        }
                     }
                     slot++
                 }
