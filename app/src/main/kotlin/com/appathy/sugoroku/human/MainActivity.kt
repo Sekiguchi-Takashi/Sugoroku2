@@ -111,7 +111,7 @@ class MainActivity : Activity() {
         // ループステージ用。dir=+1 いき / -1 かえり、phase 0=いき 1=かえり 2=さいごの いき
         var dir = 1
         var phase = 2
-        // じだいで かわる もちもの。gp=せいちょうP / pop=にんきP / mn=おかね
+        // じだいで かわる もちもの。gp=せいちょうP / pop=みりょく / mn=おかね
         var gp = 0
         var pop = 0
         val bought = HashMap<String, Int>()
@@ -828,7 +828,7 @@ class MainActivity : Activity() {
                 if (Random.nextInt(2) == 0) {
                     p.mn += pts * POP_TO_MONEY
                     updateStats()
-                    log(p.chara.name + " は にんきPを おかねに かえた")
+                    log(p.chara.name + " は みりょくを おかねに かえた")
                     handler.postDelayed(next, Speed.eventWaitMs)
                 } else {
                     showDistribute("", "", p, pts) { next() }
@@ -840,17 +840,17 @@ class MainActivity : Activity() {
                 "べんきょう・うんどう・にんき に すきなだけ わけられる（" + pts + "ポイント）")))
             items.add(PickItem("おかねに かえる", colorizeStats(
                 "おこづかい+" + (pts * POP_TO_MONEY) + "えん になる")))
-            showPicker(p.chara.name + "：にんきP " + pts + " を どうする？", null, items) { which ->
+            showPicker(p.chara.name + "：みりょく " + pts + " を どうする？", null, items) { which ->
                 if (which == 0) {
                     showDistribute(
                         p.chara.name + " の にんき",
-                        "ちゅうがっこうまでに ためた にんきポイントを わけよう。",
+                        "ちゅうがっこうまでに ためた みりょくを わけよう。",
                         p, pts
                     ) { next() }
                 } else {
                     p.mn += pts * POP_TO_MONEY
                     updateStats()
-                    message("おかねに かえた", "にんきP " + pts + " を おこづかい " +
+                    message("おかねに かえた", "みりょく " + pts + " を おこづかい " +
                             (pts * POP_TO_MONEY) + "えん に かえた。") { next() }
                 }
             }
@@ -1462,13 +1462,13 @@ class MainActivity : Activity() {
 
     private fun eraLabel(era: String): String {
         if (era == "grow") return "せいちょうP"
-        if (era == "pop") return "にんきP"
+        if (era == "pop") return "みりょく"
         return "おこづかい"
     }
 
     private fun eraUnit(era: String): String = if (era == "money") "えん" else ""
 
-    /** おこづかいの 数字は けたが 大きいので、にんきPには 400えん=1ポイントで なおす。 */
+    /** おこづかいの 数字は けたが 大きいので、みりょくには 400えん=1ポイントで なおす。 */
     private fun popFromMoney(mn: Int): Int {
         if (mn > 0) return (mn + 399) / 400
         if (mn < 0) return -((-mn + 399) / 400)
@@ -1501,7 +1501,7 @@ class MainActivity : Activity() {
         // あかちゃん・ほいくえんは せいちょうマスだけが ポイントに なるので、ここでは たさない
         val era = eraOf(p.pos)
         if (d.mn != 0 && era == "money") addEra(p, era, d.mn)
-        // にんきPは おかねより けたが 小さいので 400えん = 1ポイント に する
+        // みりょくは おかねより けたが 小さいので 400えん = 1ポイント に する
         if (d.mn != 0 && era == "pop") addEra(p, era, popFromMoney(d.mn))
         if (p.st < 0) p.st = 0
         if (p.sp < 0) p.sp = 0
@@ -1523,12 +1523,15 @@ class MainActivity : Activity() {
 
     private val COL_GP = Color.parseColor("#6A1B9A")
     private val COL_GP_D = Color.parseColor("#CE93D8")
+    private val COL_MI = Color.parseColor("#AD1457")
+    private val COL_MI_D = Color.parseColor("#F48FB1")
 
     private fun statColor(name: String, onDark: Boolean): Int {
         if (name == "べんきょう") return if (onDark) COL_ST_D else COL_ST
         if (name == "うんどう") return if (onDark) COL_SP_D else COL_SP
         if (name == "せいちょうP") return if (onDark) COL_GP_D else COL_GP
-        if (name == "にんきP" || name == "にんき") return if (onDark) COL_PP_D else COL_PP
+        if (name == "みりょく") return if (onDark) COL_MI_D else COL_MI
+        if (name == "にんき") return if (onDark) COL_PP_D else COL_PP
         return if (onDark) COL_MN_D else COL_MN
     }
 
@@ -1537,7 +1540,7 @@ class MainActivity : Activity() {
 
     private fun colorizeStats(text: String, onDark: Boolean): CharSequence {
         val sb = SpannableStringBuilder(text)
-        val names = arrayOf("べんきょう", "うんどう", "にんきP", "せいちょうP", "にんき", "おこづかい")
+        val names = arrayOf("べんきょう", "うんどう", "みりょく", "せいちょうP", "にんき", "おこづかい")
         var n = 0
         while (n < names.size) {
             val name = names[n]
@@ -1568,7 +1571,7 @@ class MainActivity : Activity() {
         if (d.mn != 0 && eraNow == "money") sb.append("おこづかい" + signed(d.mn) + "えん")
         if (d.mn != 0 && eraNow == "pop") {
             val v = popFromMoney(d.mn)
-            if (v != 0) sb.append("にんきP" + signed(v))
+            if (v != 0) sb.append("みりょく" + signed(v))
         }
         return sb.toString().trim()
     }
@@ -2279,7 +2282,7 @@ class MainActivity : Activity() {
             addEra(p, "pop", v)
             updateStats()
             val head = if (n >= 3) "3つとも 1ばん！ " else "ステータスが 1ばん！ "
-            return "\n\n" + head + "にんきP+" + v
+            return "\n\n" + head + "みりょく+" + v
         }
         return ""
     }
